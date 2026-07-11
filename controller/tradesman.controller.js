@@ -6,7 +6,7 @@ import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
 import { uploadOnCloudinary } from "../utils/commonMethod.js";
-import { SKILLS, TRAVEL_RANGES } from "../constants/skills.js";
+import { SKILLS, TRAVEL_RANGES, normalizeTravelRange, normalizeRateUnit } from "../constants/skills.js";
 
 const getOrCreateProfile = async (userId) => {
   let profile = await TradesmanProfile.findOne({ user: userId });
@@ -51,13 +51,17 @@ export const setWorkArea = catchAsync(async (req, res) => {
   if (!homeArea) {
     throw new AppError(httpStatus.BAD_REQUEST, "Home area is required");
   }
-  if (!travelRange || !TRAVEL_RANGES.includes(travelRange)) {
-    throw new AppError(httpStatus.BAD_REQUEST, "A valid travel range is required");
+  const normalizedRange = normalizeTravelRange(travelRange);
+  if (!normalizedRange) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `A valid travel range is required. Accepted values: ${TRAVEL_RANGES.join(", ")}`
+    );
   }
 
   const profile = await getOrCreateProfile(req.user._id);
   profile.homeArea = homeArea;
-  profile.travelRange = travelRange;
+  profile.travelRange = normalizedRange;
   await profile.save();
 
   sendResponse(res, {
@@ -82,7 +86,16 @@ export const setPitchAndRate = catchAsync(async (req, res) => {
   }
 
   if (rateAmount !== undefined) profile.typicalRate.amount = Number(rateAmount);
-  if (rateUnit) profile.typicalRate.unit = rateUnit;
+  if (rateUnit) {
+    const normalizedUnit = normalizeRateUnit(rateUnit);
+    if (!normalizedUnit) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `Invalid rate unit. Accepted values: Per day, Per hour, Per job`
+      );
+    }
+    profile.typicalRate.unit = normalizedUnit;
+  }
 
   if (req.files && req.files.length) {
     const uploads = await Promise.all(
@@ -111,7 +124,7 @@ export const goLive = catchAsync(async (req, res) => {
   if (!profile) {
     throw new AppError(httpStatus.BAD_REQUEST, "Complete your profile setup first");
   }
-  if (!profile.mainSkill || !profile.homeArea) {
+  if (!profile.mainSkill || !profile.homeArea || !profile.travelRange) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "Please complete all onboarding steps before going live"

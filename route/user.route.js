@@ -13,8 +13,8 @@ const router = express.Router();
 router.use(protect);
 
 router.get("/me", getMe);
-router.patch("/me", upload.single("profileImage"), updateMe);
-router.patch("/change-password", changePassword);
+router.put("/me", upload.single("profileImage"), updateMe);
+router.put("/change-password", changePassword);
 router.delete("/me", deleteMe);
 
 export default router;

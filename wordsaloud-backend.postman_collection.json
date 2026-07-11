@@ -1,0 +1,479 @@
+{
+  "info": {
+    "name": "WordSaloud Backend API",
+    "description": "Auto-generated from wordsaloud-backend source. Base path: /api/v1. Auth uses Bearer JWT access token in Authorization header.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "wordsaloud-backend-collection"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "tradesmanId", "value": "" },
+    { "key": "advertisementId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123\",\n  \"confirmPassword\": \"Password123\",\n  \"phoneNumber\": \"01700000000\",\n  \"role\": \"client\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/resend-otp", "host": ["{{baseUrl}}"], "path": ["auth", "resend-otp"] }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/verify-email", "host": ["{{baseUrl}}"], "path": ["auth", "verify-email"] }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  const body = data.data || data;",
+                  "  if (body.accessToken) pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "  if (body.refreshToken) pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forget Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/forget-password", "host": ["{{baseUrl}}"], "path": ["auth", "forget-password"] }
+          }
+        },
+        {
+          "name": "Verify Reset Password OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/verify-reset-otp", "host": ["{{baseUrl}}"], "path": ["auth", "verify-reset-otp"] }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPassword123\",\n  \"confirmPassword\": \"NewPassword123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/user/me", "host": ["{{baseUrl}}"], "path": ["user", "me"] }
+          }
+        },
+        {
+          "name": "Update Me",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "firstName", "value": "John", "type": "text" },
+                { "key": "lastName", "value": "Doe", "type": "text" },
+                { "key": "area", "value": "Dhanmondi", "type": "text" },
+                { "key": "phoneNumber", "value": "01700000000", "type": "text" },
+                { "key": "profileImage", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/user/me", "host": ["{{baseUrl}}"], "path": ["user", "me"] }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password123\",\n  \"newPassword\": \"NewPassword123\",\n  \"confirmPassword\": \"NewPassword123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/user/change-password", "host": ["{{baseUrl}}"], "path": ["user", "change-password"] }
+          }
+        },
+        {
+          "name": "Delete Me",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/user/me", "host": ["{{baseUrl}}"], "path": ["user", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tradesman",
+      "item": [
+        {
+          "name": "Get Categories (public)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{baseUrl}}/tradesman/categories", "host": ["{{baseUrl}}"], "path": ["tradesman", "categories"] }
+          }
+        },
+        {
+          "name": "Browse Tradesmen (public)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}/tradesman?skill=&search=&area=&sort=rating&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["tradesman"],
+              "query": [
+                { "key": "skill", "value": "" },
+                { "key": "search", "value": "" },
+                { "key": "area", "value": "" },
+                { "key": "sort", "value": "rating" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Tradesman By Id (public)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}/tradesman/{{tradesmanId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tradesman", "{{tradesmanId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get My Profile (tradesman)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/tradesman/me/profile", "host": ["{{baseUrl}}"], "path": ["tradesman", "me", "profile"] }
+          }
+        },
+        {
+          "name": "Onboarding - Set Skills (tradesman)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mainSkill\": \"Plumber\",\n  \"extraSkills\": [\"Electrician\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tradesman/onboarding/skills", "host": ["{{baseUrl}}"], "path": ["tradesman", "onboarding", "skills"] }
+          }
+        },
+        {
+          "name": "Onboarding - Set Work Area (tradesman)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeArea\": \"Dhanmondi\",\n  \"travelRange\": 10\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tradesman/onboarding/work-area", "host": ["{{baseUrl}}"], "path": ["tradesman", "onboarding", "work-area"] }
+          }
+        },
+        {
+          "name": "Onboarding - Set Pitch & Rate (tradesman)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "pitch", "value": "Experienced plumber with 10 years in the field", "type": "text" },
+                { "key": "rateAmount", "value": "500", "type": "text" },
+                { "key": "rateUnit", "value": "hour", "type": "text" },
+                { "key": "workPhotos", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/tradesman/onboarding/pitch", "host": ["{{baseUrl}}"], "path": ["tradesman", "onboarding", "pitch"] }
+          }
+        },
+        {
+          "name": "Onboarding - Go Live (tradesman)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tradesman/onboarding/go-live", "host": ["{{baseUrl}}"], "path": ["tradesman", "onboarding", "go-live"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Review",
+      "item": [
+        {
+          "name": "Get Reviews For Tradesman (public)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}/review/{{tradesmanId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "{{tradesmanId}}"]
+            }
+          }
+        },
+        {
+          "name": "Post Review (client)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"ratingLabel\": \"Excellent\",\n  \"reviewText\": \"Great service, very professional.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/review/{{tradesmanId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "{{tradesmanId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inquiry",
+      "item": [
+        {
+          "name": "Send Inquiry (public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"ABC Traders\",\n  \"whatsappPhone\": \"01700000000\",\n  \"tradesToAdvertiseTo\": [\"Plumber\", \"Electrician\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/inquiry", "host": ["{{baseUrl}}"], "path": ["inquiry"] }
+          }
+        },
+        {
+          "name": "Get All Inquiries (admin)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/inquiry", "host": ["{{baseUrl}}"], "path": ["inquiry"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skill Options",
+      "item": [
+        {
+          "name": "Get Skill Options (public)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{baseUrl}}/options", "host": ["{{baseUrl}}"], "path": ["options"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Get Active Advertisements (public)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{baseUrl}}/admin/advertisements/active", "host": ["{{baseUrl}}"], "path": ["admin", "advertisements", "active"] }
+          }
+        },
+        {
+          "name": "Get Dashboard Overview (admin)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/dashboard", "host": ["{{baseUrl}}"], "path": ["admin", "dashboard"] }
+          }
+        },
+        {
+          "name": "Get User List (admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/users?type=all&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"],
+              "query": [
+                { "key": "type", "value": "all" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Toggle User Block (admin)",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}/toggle-block",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{userId}}", "toggle-block"]
+            }
+          }
+        },
+        {
+          "name": "Delete User (admin)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Add VIP Member (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"email\": \"jane@example.com\",\n  \"phoneNumber\": \"01700000001\",\n  \"homeArea\": \"Gulshan\",\n  \"travelRange\": 15,\n  \"pitch\": \"Skilled electrician\",\n  \"rateAmount\": 600,\n  \"rateUnit\": \"hour\",\n  \"mainSkill\": \"Electrician\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/users/vip", "host": ["{{baseUrl}}"], "path": ["admin", "users", "vip"] }
+          }
+        },
+        {
+          "name": "Get Advertisements (admin)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/advertisements", "host": ["{{baseUrl}}"], "path": ["admin", "advertisements"] }
+          }
+        },
+        {
+          "name": "Create Advertisement (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Summer Promo\",\n  \"description\": \"Get 20% off on all plumbing services\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/advertisements", "host": ["{{baseUrl}}"], "path": ["admin", "advertisements"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  const body = data.data || data;",
+                  "  if (body._id) pm.collectionVariables.set('advertisementId', body._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Advertisement (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Summer Promo Updated\",\n  \"description\": \"Get 25% off on all plumbing services\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/advertisements/{{advertisementId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "advertisements", "{{advertisementId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Advertisement (admin)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/admin/advertisements/{{advertisementId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "advertisements", "{{advertisementId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

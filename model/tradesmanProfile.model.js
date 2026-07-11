@@ -12,10 +12,14 @@ const tradesmanProfileSchema = new Schema(
     },
 
     // "Tap your main first, then two extras" - main skill + up to 2 extras
+    // NOTE: not `required` at schema level on purpose - this profile is built
+    // up across multiple onboarding steps (skills -> work-area -> pitch ->
+    // go-live), so each intermediate save must not fail full-document
+    // validation before later steps have filled in their fields.
+    // Completeness is enforced explicitly in the goLive controller instead.
     mainSkill: {
       type: String,
       enum: SKILLS,
-      required: true,
     },
 
     extraSkills: {
@@ -29,14 +33,12 @@ const tradesmanProfileSchema = new Schema(
 
     homeArea: {
       type: String,
-      required: true,
       trim: true,
     },
 
     travelRange: {
       type: String,
       enum: TRAVEL_RANGES,
-      required: true,
     },
 
     // "Tell clients about yourself. Keep it real. 140 chars."

@@ -5,7 +5,7 @@ const userSchema = new Schema(
   {
     firstName: {
       type: String,
-      required: [true, "First name is required"],
+      // required: [true, "First name is required"],
       trim: true,
     },
 
@@ -14,7 +14,7 @@ const userSchema = new Schema(
     // publicly" note on the sign up screen.
     lastName: {
       type: String,
-      required: [true, "Last name is required"],
+      // required: [true, "Last name is required"],
       trim: true,
     },
 
@@ -159,3 +159,7 @@ userSchema.methods.toJSON = function () {
 const User = mongoose.model("User", userSchema);
 
 export default User;
+
+
+
+
