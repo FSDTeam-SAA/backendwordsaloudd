@@ -1,0 +1,263 @@
+import httpStatus from "http-status";
+import TradesmanProfile from "../model/tradesmanProfile.model.js";
+import User from "../model/user.model.js";
+import Review from "../model/review.model.js";
+import AppError from "../errors/AppError.js";
+import catchAsync from "../utils/catchAsync.js";
+import sendResponse from "../utils/sendResponse.js";
+import { uploadOnCloudinary } from "../utils/commonMethod.js";
+import { SKILLS, TRAVEL_RANGES } from "../constants/skills.js";
+
+const getOrCreateProfile = async (userId) => {
+  let profile = await TradesmanProfile.findOne({ user: userId });
+  if (!profile) {
+    profile = new TradesmanProfile({ user: userId });
+  }
+  return profile;
+};
+
+// Onboarding Step 1 - "What can you do?" (main skill + up to 2 extras)
+export const setSkills = catchAsync(async (req, res) => {
+  const { mainSkill, extraSkills } = req.body;
+
+  if (!mainSkill || !SKILLS.includes(mainSkill)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "A valid main skill is required");
+  }
+
+  const extras = Array.isArray(extraSkills) ? extraSkills.slice(0, 2) : [];
+  extras.forEach((s) => {
+    if (!SKILLS.includes(s)) {
+      throw new AppError(httpStatus.BAD_REQUEST, `Invalid skill: ${s}`);
+    }
+  });
+
+  const profile = await getOrCreateProfile(req.user._id);
+  profile.mainSkill = mainSkill;
+  profile.extraSkills = extras;
+  await profile.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Skills saved",
+    data: profile,
+  });
+});
+
+// Onboarding Step 2 - "What can you work?" (home area + travel range)
+export const setWorkArea = catchAsync(async (req, res) => {
+  const { homeArea, travelRange } = req.body;
+
+  if (!homeArea) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Home area is required");
+  }
+  if (!travelRange || !TRAVEL_RANGES.includes(travelRange)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "A valid travel range is required");
+  }
+
+  const profile = await getOrCreateProfile(req.user._id);
+  profile.homeArea = homeArea;
+  profile.travelRange = travelRange;
+  await profile.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Work area saved",
+    data: profile,
+  });
+});
+
+// Onboarding Step 3 - "Tell clients about yourself" (pitch, rate, work photos)
+export const setPitchAndRate = catchAsync(async (req, res) => {
+  const { pitch, rateAmount, rateUnit } = req.body;
+
+  const profile = await getOrCreateProfile(req.user._id);
+
+  if (pitch !== undefined) {
+    if (pitch.length > 140) {
+      throw new AppError(httpStatus.BAD_REQUEST, "Pitch must be 140 characters or less");
+    }
+    profile.pitch = pitch;
+  }
+
+  if (rateAmount !== undefined) profile.typicalRate.amount = Number(rateAmount);
+  if (rateUnit) profile.typicalRate.unit = rateUnit;
+
+  if (req.files && req.files.length) {
+    const uploads = await Promise.all(
+      req.files.map((f) =>
+        uploadOnCloudinary(f.buffer, { folder: "aturservicett/work-photos" })
+      )
+    );
+    profile.workPhotos.push(
+      ...uploads.map((r) => ({ public_id: r.public_id, url: r.secure_url }))
+    );
+  }
+
+  await profile.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Profile details saved",
+    data: profile,
+  });
+});
+
+// "You're live!" - submit for verification / go live
+export const goLive = catchAsync(async (req, res) => {
+  const profile = await TradesmanProfile.findOne({ user: req.user._id });
+  if (!profile) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Complete your profile setup first");
+  }
+  if (!profile.mainSkill || !profile.homeArea) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Please complete all onboarding steps before going live"
+    );
+  }
+
+  profile.isLive = true;
+  if (profile.verificationStatus === "rejected") {
+    profile.verificationStatus = "pending";
+  }
+  await profile.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Your profile is now visible to clients in Trinidad and Tobago",
+    data: profile,
+  });
+});
+
+// logged in tradesman's own profile
+export const getMyProfile = catchAsync(async (req, res) => {
+  const profile = await TradesmanProfile.findOne({ user: req.user._id }).populate(
+    "user",
+    "firstName lastName email phoneNumber area profileImage"
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Profile fetched",
+    data: profile,
+  });
+});
+
+// Home screen grid: "Plumber 73 Listed", "Electrician 73 Listed" etc.
+export const getCategories = catchAsync(async (req, res) => {
+  const counts = await TradesmanProfile.aggregate([
+    { $match: { isLive: true } },
+    { $group: { _id: "$mainSkill", count: { $sum: 1 } } },
+  ]);
+
+  const countMap = counts.reduce((acc, c) => {
+    acc[c._id] = c.count;
+    return acc;
+  }, {});
+
+  const categories = SKILLS.map((skill) => ({
+    skill,
+    listedCount: countMap[skill] || 0,
+  }));
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Categories fetched",
+    data: categories,
+  });
+});
+
+// "Plumbers - 12 plumber Near You / All Plumber sorted by Rating"
+export const browseTradesmen = catchAsync(async (req, res) => {
+  const {
+    skill,
+    search,
+    area,
+    sort = "rating",
+    page = 1,
+    limit = 20,
+  } = req.query;
+
+  const filter = { isLive: true };
+  if (skill) filter.mainSkill = skill;
+  if (area) filter.homeArea = new RegExp(area, "i");
+
+  let query = TradesmanProfile.find(filter).populate(
+    "user",
+    "firstName lastName profileImage area"
+  );
+
+  if (search) {
+    const users = await User.find({
+      $or: [
+        { firstName: new RegExp(search, "i") },
+        { lastName: new RegExp(search, "i") },
+      ],
+    }).select("_id");
+    filter.user = { $in: users.map((u) => u._id) };
+    query = TradesmanProfile.find(filter).populate(
+      "user",
+      "firstName lastName profileImage area"
+    );
+  }
+
+  const sortMap = {
+    rating: { isVip: -1, ratingAverage: -1 },
+    newest: { createdAt: -1 },
+    priceLow: { "typicalRate.amount": 1 },
+    priceHigh: { "typicalRate.amount": -1 },
+  };
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [items, total] = await Promise.all([
+    query
+      .clone()
+      .sort(sortMap[sort] || sortMap.rating)
+      .skip(skip)
+      .limit(Number(limit)),
+    TradesmanProfile.countDocuments(filter),
+  ]);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Tradesmen fetched",
+    data: items,
+    meta: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / Number(limit)),
+    },
+  });
+});
+
+// tradesman detail page - about, recent work, reviews
+export const getTradesmanById = catchAsync(async (req, res) => {
+  const profile = await TradesmanProfile.findById(req.params.id).populate(
+    "user",
+    "firstName lastName phoneNumber area profileImage"
+  );
+
+  if (!profile) {
+    throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
+  }
+
+  const reviews = await Review.find({ tradesman: profile._id })
+    .populate("reviewer", "firstName lastName")
+    .sort({ createdAt: -1 })
+    .limit(20);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Tradesman fetched",
+    data: { profile, reviews },
+  });
+});

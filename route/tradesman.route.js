@@ -1,0 +1,35 @@
+import express from "express";
+import {
+  setSkills,
+  setWorkArea,
+  setPitchAndRate,
+  goLive,
+  getMyProfile,
+  getCategories,
+  browseTradesmen,
+  getTradesmanById,
+} from "../controller/tradesman.controller.js";
+import { protect, restrictTo } from "../middleware/auth.middleware.js";
+import upload from "../middleware/multer.middleware.js";
+
+const router = express.Router();
+
+// public - browse / search / categories / detail
+router.get("/categories", getCategories);
+router.get("/", browseTradesmen);
+router.get("/:id", getTradesmanById);
+
+// tradesman-only onboarding + profile management
+router.use(protect, restrictTo("tradesman"));
+
+router.get("/me/profile", getMyProfile);
+router.post("/onboarding/skills", setSkills);
+router.post("/onboarding/work-area", setWorkArea);
+router.post(
+  "/onboarding/pitch",
+  upload.array("workPhotos", 6),
+  setPitchAndRate
+);
+router.post("/onboarding/go-live", goLive);
+
+export default router;
