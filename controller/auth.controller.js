@@ -671,6 +671,42 @@ export const register = catchAsync(async (req, res) => {
   });
 });
 
+
+// ── Sign up Step 1 — "Your Email" box on the Sign up screen ──────────────
+export const sendSignupOtp = catchAsync(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  let user = await User.findOne({ email: normalizedEmail });
+
+  if (user && user.isProfileComplete) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email already registered. Please log in instead.");
+  }
+
+  if (!user) {
+    // partial user — only email exists, everything else filled in at Step 3
+    user = new User({ email: normalizedEmail, role: "client" });
+  }
+
+  const otp = generateOTP(6); // ✅ এখন 6-digit OTP
+  user.setOTP(otp);
+  user.isOTPVerified = false; // reset in case they're retrying
+  await user.save({ validateBeforeSave: false });
+
+  await sendEmail(user.email, "Verify your email", `Your OTP is ${otp}`);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "OTP sent to your email",
+    data: { email: user.email, otp }, // NOTE: dev-only, remove `otp` before production
+  });
+});
+
 export const verifyEmail = catchAsync(async (req, res) => {
   const { email, otp } = req.body;
 
@@ -701,6 +737,41 @@ export const verifyEmail = catchAsync(async (req, res) => {
     message: "Email verified successfully",
   });
 });
+
+
+// // ── Sign up Step 2 — "Verify Email" screen (6-box "Sms Code") ────────────
+// export const verifyEmail = catchAsync(async (req, res) => {
+//   const { email, otp } = req.body;
+
+//   if (!email || !otp) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "Email and OTP are required");
+//   }
+
+//   const user = await User.findOne({
+//     email: email.toLowerCase().trim(),
+//   }).select("+otp.code +otp.expiresAt");
+
+//   if (!user) {
+//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+//   }
+
+//   if (!user.isOTPValid(otp)) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
+//   }
+
+//   user.isEmailVerified = true;
+//   user.isOTPVerified = true; // gate flag checked by complete-signup
+//   user.clearOTP();
+//   await user.save({ validateBeforeSave: false });
+
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "Email verified. You can now finish signing up.",
+//     data: { email: user.email },
+//     otp,
+//   });
+// });
 
 export const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
