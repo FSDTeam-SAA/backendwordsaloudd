@@ -112,7 +112,8 @@ userSchema.methods.clearOTP = function () {
 
 userSchema.methods.isOTPValid = function (code) {
   return (
-    this.otp?.code === code &&
+    this.otp?.code != null &&
+    String(this.otp.code) === String(code) &&
     this.otp?.expiresAt &&
     this.otp.expiresAt > new Date()
   );
@@ -131,7 +132,8 @@ userSchema.methods.clearResetPasswordOTP = function () {
 
 userSchema.methods.isResetPasswordOTPValid = function (code) {
   return (
-    this.resetPasswordOtp?.code === code &&
+    this.resetPasswordOtp?.code != null &&
+    String(this.resetPasswordOtp.code) === String(code) &&
     this.resetPasswordOtp?.expiresAt &&
     this.resetPasswordOtp.expiresAt > new Date()
   );
