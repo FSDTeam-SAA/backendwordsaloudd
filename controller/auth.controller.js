@@ -617,60 +617,127 @@ import { sendEmail } from "../utils/sendEmail.js";
 
 
 
+// export const register = catchAsync(async (req, res) => {
+//   const {
+//     firstName,
+//     lastName,
+//     email,
+//     password,
+//     confirmPassword,
+//     phoneNumber,
+//     role,
+//     area,
+//   } = req.body;
+
+//   if (!firstName || !lastName || !email || !password || !confirmPassword) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "All fields required");
+//   }
+
+//   if (password !== confirmPassword) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "Passwords not match");
+//   }
+
+//   const exists = await User.findOne({ email: email.toLowerCase().trim() });
+//   if (exists) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "Email already exists");
+//   }
+
+//   const user = await User.create({
+//     firstName: firstName.trim(),
+//     lastName: lastName.trim(),
+//     email: email.toLowerCase().trim(),
+//     password,
+//     phoneNumber,
+//     area: area ? area.trim() : "",
+//     role: ["client", "tradesman", "admin"].includes(role) ? role : "client",
+//   });
+
+//   const otp = generateOTP();
+
+//   user.setOTP(otp);
+//   await user.save();
+
+//   await sendEmail(user.email, "Email Verification OTP", `Your OTP is ${otp}`);
+
+//   sendResponse(res, {
+//     statusCode: httpStatus.CREATED,
+//     success: true,
+//     message: "Registered successfully. Verify OTP sent to email.",
+//     data: {
+//       email: user.email,
+//       role: user.role,
+//       otp,
+//     },
+//   });
+// });
+
+
+
 export const register = catchAsync(async (req, res) => {
   const {
+    email,
     firstName,
     lastName,
-    email,
+    area,
     password,
     confirmPassword,
     phoneNumber,
     role,
-    area,
   } = req.body;
 
-  if (!firstName || !lastName || !email || !password || !confirmPassword) {
-    throw new AppError(httpStatus.BAD_REQUEST, "All fields required");
+  // verified email middleware/session থেকে
+  // const email = req.user.email; // অথবা req.verifiedEmail
+
+  if (!firstName || !lastName || !password || !confirmPassword) {
+    throw new AppError(httpStatus.BAD_REQUEST, "All fields are required");
   }
 
   if (password !== confirmPassword) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Passwords not match");
+    throw new AppError(httpStatus.BAD_REQUEST, "Passwords do not match");
   }
 
-  const exists = await User.findOne({ email: email.toLowerCase().trim() });
-  if (exists) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Email already exists");
-  }
-
-  const user = await User.create({
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
+  const user = await User.findOne({
     email: email.toLowerCase().trim(),
-    password,
-    phoneNumber,
-    area: area ? area.trim() : "",
-    role: ["client", "tradesman", "admin"].includes(role) ? role : "client",
   });
 
-  const otp = generateOTP();
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
 
-  user.setOTP(otp);
+  if (!user.isEmailVerified) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email is not verified");
+  }
+
+  if (user.isProfileComplete) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Account already exists");
+  }
+
+  user.firstName = firstName.trim();
+  user.lastName = lastName.trim();
+  user.password = password;
+  user.phoneNumber = phoneNumber || "";
+  user.area = area?.trim() || "";
+  user.role = ["client", "tradesman"].includes(role)
+    ? role
+    : "client";
+
+  user.isProfileComplete = true;
+
   await user.save();
 
-  await sendEmail(user.email, "Email Verification OTP", `Your OTP is ${otp}`);
-
   sendResponse(res, {
-    statusCode: httpStatus.CREATED,
+    statusCode: httpStatus.OK,
     success: true,
-    message: "Registered successfully. Verify OTP sent to email.",
+    message: "Registration completed successfully",
     data: {
+      _id: user._id,
+      name: user.name,
       email: user.email,
       role: user.role,
-      otp,
+      area: user.area,
     },
   });
 });
-
 
 // ── Sign up Step 1 — "Your Email" box on the Sign up screen ──────────────
 export const sendSignupOtp = catchAsync(async (req, res) => {
