@@ -1,171 +1,11 @@
-// import httpStatus from "http-status";
-// import User from "../model/user.model.js";
-// import AppError from "../errors/AppError.js";
-// import catchAsync from "../utils/catchAsync.js";
-// import sendResponse from "../utils/sendResponse.js";
-// import { createToken, verifyToken } from "../utils/authToken.js";
-// import { generateOTP } from "../utils/commonMethod.js";
-// import { sendEmail } from "../utils/sendEmail.js";
-
-
-// // export const register = catchAsync(async (req, res) => {
-// //   const {
-// //     firstName,
-// //     lastName,
-// //     email,
-// //     otp,
-// //     password,
-// //     confirmPassword,
-// //     phoneNumber,
-// //     role,
-// //     area,
-// //   } = req.body;
-
-// //   if (
-// //     !firstName ||
-// //     !lastName ||
-// //     !email ||
-// //     !otp ||
-// //     !password ||
-// //     !confirmPassword
-// //   ) {
-// //     throw new AppError(httpStatus.BAD_REQUEST, "All fields are required");
-// //   }
-
-// //   if (password !== confirmPassword) {
-// //     throw new AppError(
-// //       httpStatus.BAD_REQUEST,
-// //       "Passwords do not match"
-// //     );
-// //   }
-
-// //   const user = await User.findOne({
-// //     email: email.toLowerCase().trim(),
-// //   }).select("+otp.code +otp.expiresAt +password");
-
-// //   if (!user) {
-// //     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-
-    
-// //   }
-
-// //   // OTP verify
-// //   if (!user.isOTPValid(otp)) {
-// //     throw new AppError(
-// //       httpStatus.BAD_REQUEST,
-// //       "Invalid or expired OTP"
-// //     );
-// //   }
-
-// //   if (user.isProfileComplete) {
-// //     throw new AppError(
-// //       httpStatus.BAD_REQUEST,
-// //       "Account already exists"
-// //     );
-// //   }
-
-// //   user.firstName = firstName.trim();
-// //   user.lastName = lastName.trim();
-// //   user.password = password;
-// //   user.phoneNumber = phoneNumber || "";
-// //   user.area = area?.trim() || "";
-// //   user.role = ["client", "tradesman"].includes(role)
-// //     ? role
-// //     : "client";
-
-// //   user.isEmailVerified = true;
-// //   user.isProfileComplete = true;
-
-// //   user.clearOTP();
-
-// //   await user.save();
-
-// //   sendResponse(res, {
-// //     statusCode: httpStatus.CREATED,
-// //     success: true,
-// //     message: "Registration completed successfully",
-// //     data: {
-// //       _id: user._id,
-// //       name: user.name,
-// //       email: user.email,
-// //       role: user.role,
-// //       area: user.area,
-// //     },
-// //   });
-// // });
-
-
-
-// // export const register = catchAsync(async (req, res) => {
-// //   const {
-// //     firstName,
-// //     lastName,
-// //     email,
-// //     otp,
-// //     phoneNumber,
-// //     role,
-// //     area,
-// //   } = req.body;
-
-// //   if (!firstName || !lastName || !email || !otp) {
-// //     throw new AppError(
-// //       httpStatus.BAD_REQUEST,
-// //       "First name, last name, email and OTP are required"
-// //     );
-// //   }
-
-// //   const user = await User.findOne({
-// //     email: email.toLowerCase().trim(),
-// //   }).select("+otp.code +otp.expiresAt");
-
-// //   if (!user) {
-// //     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-// //   }
-
-// //   // OTP verify
-// //   if (!user.isOTPValid(otp)) {
-// //     throw new AppError(
-// //       httpStatus.BAD_REQUEST,
-// //       "Invalid or expired OTP"
-// //     );
-// //   }
-
-// //   if (user.isProfileComplete) {
-// //     throw new AppError(
-// //       httpStatus.BAD_REQUEST,
-// //       "Account already exists"
-// //     );
-// //   }
-
-// //   user.firstName = firstName.trim();
-// //   user.lastName = lastName.trim();
-// //   user.phoneNumber = phoneNumber?.trim() || "";
-// //   user.area = area?.trim() || "";
-// //   user.role = ["client", "tradesman"].includes(role)
-// //     ? role
-// //     : "client";
-
-// //   user.isEmailVerified = true;
-// //   user.isProfileComplete = true;
-
-// //   user.clearOTP();
-
-// //   await user.save();
-
-// //   sendResponse(res, {
-// //     statusCode: httpStatus.CREATED,
-// //     success: true,
-// //     message: "Registration completed successfully",
-// //     data: {
-// //       _id: user._id,
-// //       name: user.name,
-// //       email: user.email,
-// //       role: user.role,
-// //       area: user.area,
-// //     },
-// //   });
-// // });
-
+import httpStatus from "http-status";
+import User from "../model/user.model.js";
+import AppError from "../errors/AppError.js";
+import catchAsync from "../utils/catchAsync.js";
+import sendResponse from "../utils/sendResponse.js";
+import { createToken, verifyToken } from "../utils/authToken.js";
+import { generateOTP } from "../utils/commonMethod.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 
 // export const register = catchAsync(async (req, res) => {
@@ -174,26 +14,46 @@
 //     lastName,
 //     email,
 //     otp,
+//     password,
+//     confirmPassword,
 //     phoneNumber,
 //     role,
 //     area,
 //   } = req.body;
 
-//   if (!firstName || !lastName || !email || !otp) {
+//   if (
+//     !firstName ||
+//     !lastName ||
+//     !email ||
+//     !otp ||
+//     !password ||
+//     !confirmPassword
+//   ) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "All fields are required");
+//   }
+
+//   if (password !== confirmPassword) {
 //     throw new AppError(
 //       httpStatus.BAD_REQUEST,
-//       "First name, last name, email and OTP are required"
+//       "Passwords do not match"
 //     );
 //   }
 
 //   const user = await User.findOne({
 //     email: email.toLowerCase().trim(),
-//   }).select("+otp.code +otp.expiresAt");
+//   }).select("+otp.code +otp.expiresAt +password");
 
 //   if (!user) {
+//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+
+    
+//   }
+
+//   // OTP verify
+//   if (!user.isOTPValid(otp)) {
 //     throw new AppError(
-//       httpStatus.NOT_FOUND,
-//       "User not found"
+//       httpStatus.BAD_REQUEST,
+//       "Invalid or expired OTP"
 //     );
 //   }
 
@@ -204,26 +64,18 @@
 //     );
 //   }
 
-//   // Verify OTP
-//   if (!user.isOTPValid(otp)) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Invalid or expired OTP"
-//     );
-//   }
-
 //   user.firstName = firstName.trim();
 //   user.lastName = lastName.trim();
-//   user.phoneNumber = phoneNumber?.trim() || "";
+//   user.password = password;
+//   user.phoneNumber = phoneNumber || "";
 //   user.area = area?.trim() || "";
-//   user.role =
-//     role === "tradesman" ? "tradesman" : "client";
+//   user.role = ["client", "tradesman"].includes(role)
+//     ? role
+//     : "client";
 
-//   // Email verified + Profile completed
 //   user.isEmailVerified = true;
 //   user.isProfileComplete = true;
 
-//   // OTP used once
 //   user.clearOTP();
 
 //   await user.save();
@@ -242,250 +94,168 @@
 //   });
 // });
 
-// // ── Sign up Step 1 — "Your Email" box on the Sign up screen ──────────────
-// // export const sendSignupOtp = catchAsync(async (req, res) => {
-// //   const { email } = req.body;
-
-// //   if (!email) {
-// //     throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
-// //   }
-
-// //   const normalizedEmail = email.toLowerCase().trim();
-// //   let user = await User.findOne({ email: normalizedEmail });
-
-// //   if (user && user.isProfileComplete) {
-// //     throw new AppError(httpStatus.BAD_REQUEST, "Email already registered. Please log in instead.");
-// //   }
-
-// //   if (!user) {
-// //     // partial user — only email exists, everything else filled in at Step 3
-// //     user = new User({ email: normalizedEmail, role: "client" });
-// //   }
-
-// //   const otp = generateOTP(6); // ✅ এখন 6-digit OTP
-// //   user.setOTP(otp);
-// //   user.isOTPVerified = false; // reset in case they're retrying
-// //   await user.save({ validateBeforeSave: false });
-
-// //   await sendEmail(user.email, "Verify your email", `Your OTP is ${otp}`);
-
-// //   sendResponse(res, {
-// //     statusCode: httpStatus.OK,
-// //     success: true,
-// //     message: "OTP sent to your email",
-// //     data: { email: user.email, otp }, // NOTE: dev-only, remove `otp` before production
-// //   });
-// // });
-
-// // export const verifyEmail = catchAsync(async (req, res) => {
-// //   const { email, otp } = req.body;
-
-// //   if (!email || !otp) {
-// //     throw new AppError(httpStatus.BAD_REQUEST, "Email and OTP are required");
-// //   }
-
-// //   const user = await User.findOne({
-// //     email: email.toLowerCase().trim(),
-// //   }).select("+otp.code +otp.expiresAt");
-
-// //   if (!user) {
-// //     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-// //   }
-
-// //   if (!user.isOTPValid(otp)) {
-// //     throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
-// //   }
-
-// //   user.isEmailVerified = true;
-// //   user.clearOTP();
-
-// //   await user.save();
-
-// //   sendResponse(res, {
-// //     statusCode: httpStatus.OK,
-// //     success: true,
-// //     message: "Email verified successfully",
-// //   });
-// // });
 
 
-// export const sendSignupOtp = catchAsync(async (req, res) => {
-//   const { email } = req.body;
+export const register = catchAsync(async (req, res) => {
+  const {
+    firstName,
+    lastName,
+    email,
+    otp,
+    phoneNumber,
+    role,
+    area,
+  } = req.body;
 
-//   if (!email) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
-//   }
+  if (!firstName || !lastName || !email || !otp) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "First name, last name, email and OTP are required"
+    );
+  }
 
-//   const normalizedEmail = email.toLowerCase().trim();
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+  }).select("+otp.code +otp.expiresAt");
 
-//   let user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
 
-//   if (user && user.isProfileComplete) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Email already registered. Please login instead."
-//     );
-//   }
+  // OTP verify
+  if (!user.isOTPValid(otp)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Invalid or expired OTP"
+    );
+  }
 
-//   if (!user) {
-//     user = new User({
-//       email: normalizedEmail,
-//       role: "client",
-//     });
-//   }
+  if (user.isProfileComplete) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Account already exists"
+    );
+  }
 
-//   const otp = generateOTP(6);
+  user.firstName = firstName.trim();
+  user.lastName = lastName.trim();
+  user.phoneNumber = phoneNumber?.trim() || "";
+  user.area = area?.trim() || "";
+  user.role = ["client", "tradesman"].includes(role)
+    ? role
+    : "client";
 
-//   user.setOTP(otp);
+  user.isEmailVerified = true;
+  user.isProfileComplete = true;
 
-//   await user.save({ validateBeforeSave: false });
+  // user.clearOTP();
 
-//   await sendEmail(
-//     user.email,
-//     "Verify your Email",
-//     `Your OTP is ${otp}`
-//   );
+  await user.save();
 
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "OTP sent successfully",
-//     data: {
-//       email: user.email,
-//       otp, // Remove in production
-//     },
-//   });
-// });
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: "Registration completed successfully",
+    data: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      area: user.area,
+    },
+  });
+});
 
-// export const verifyEmail = catchAsync(async (req, res) => {
-//   const { email, otp } = req.body;
+// ── Sign up Step 1 — "Your Email" box on the Sign up screen ──────────────
+export const sendSignupOtp = catchAsync(async (req, res) => {
+  const { email } = req.body;
 
-//   if (!email || !otp) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email and OTP are required");
+  if (!email) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  let user = await User.findOne({ email: normalizedEmail });
+
+  if (user && user.isProfileComplete) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email already registered. Please log in instead.");
+  }
+
+  if (!user) {
+    // partial user — only email exists, everything else filled in at Step 3
+    user = new User({ email: normalizedEmail, role: "client" });
+  }
+
+  const otp = generateOTP(6); // ✅ এখন 6-digit OTP
+  user.setOTP(otp);
+  user.isOTPVerified = false; // reset in case they're retrying
+  await user.save({ validateBeforeSave: false });
+
+  await sendEmail(user.email, "Verify your email", `Your OTP is ${otp}`);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "OTP sent to your email",
+    data: { email: user.email, otp }, // NOTE: dev-only, remove `otp` before production
+  });
+});
+
+export const verifyEmail = catchAsync(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email and OTP are required");
+  }
+
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+  }).select("+otp.code +otp.expiresAt");
+
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (!user.isOTPValid(otp)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
+  }
+
+  user.isEmailVerified = true;
+  user.clearOTP();
+
+  await user.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Email verified successfully",
+  });
+});
+
+
+// export const login = catchAsync(async (req, res) => {
+//   const { email, password } = req.body;
+
+//   if (!email || !password) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "Email and password required");
 //   }
 
 //   const user = await User.findOne({
 //     email: email.toLowerCase().trim(),
-//   }).select("+otp.code +otp.expiresAt");
+//   }).select("+password");
 
 //   if (!user) {
 //     throw new AppError(httpStatus.NOT_FOUND, "User not found");
 //   }
 
-//   if (!user.isOTPValid(otp)) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
-//   }
-
-//   user.isEmailVerified = true;
-//   user.clearOTP();
-
-//   await user.save();
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "Email verified successfully",
-//   });
-// });
-
-// // export const login = catchAsync(async (req, res) => {
-// //   const { email, password } = req.body;
-
-// //   if (!email || !password) {
-// //     throw new AppError(httpStatus.BAD_REQUEST, "Email and password required");
-// //   }
-
-// //   const user = await User.findOne({
-// //     email: email.toLowerCase().trim(),
-// //   }).select("+password");
-
-// //   if (!user) {
-// //     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-// //   }
-
-// //   if (!user.isEmailVerified) {
-// //     throw new AppError(httpStatus.FORBIDDEN, "Email not verified");
-// //   }
-
-// //   const match = await user.comparePassword(password);
-
-// //   if (!match) {
-// //     throw new AppError(httpStatus.FORBIDDEN, "Wrong password");
-// //   }
-
-// //   const payload = {
-// //     _id: user._id,
-// //     email: user.email,
-// //     role: user.role,
-// //   };
-
-// //   const accessToken = createToken(
-// //     payload,
-// //     process.env.JWT_ACCESS_SECRET,
-// //     "1d"
-// //   );
-
-// //   const refreshToken = createToken(
-// //     payload,
-// //     process.env.JWT_REFRESH_SECRET,
-// //     "7d"
-// //   );
-
-// //   user.refreshToken = refreshToken;
-// //   await user.save();
-
-// //   sendResponse(res, {
-// //     statusCode: httpStatus.OK,
-// //     success: true,
-// //     message: "Login successful",
-// //     data: {
-// //       _id: user._id,
-// //       name: user.name,
-// //       email: user.email,
-// //       phoneNumber: user.phoneNumber,
-// //       role: user.role,
-// //       area: user.area,
-// //       isEmailVerified: user.isEmailVerified,
-// //       accessToken,
-// //       refreshToken,
-// //     },
-// //   });
-// // });
-
-
-// export const login = catchAsync(async (req, res) => {
-//   const { email } = req.body;
-
-//   if (!email) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Email is required"
-//     );
-//   }
-
-//   const user = await User.findOne({
-//     email: email.toLowerCase().trim(),
-//   });
-
-//   if (!user) {
-//     throw new AppError(
-//       httpStatus.NOT_FOUND,
-//       "User not found"
-//     );
-//   }
-
 //   if (!user.isEmailVerified) {
-//     throw new AppError(
-//       httpStatus.FORBIDDEN,
-//       "Email not verified"
-//     );
+//     throw new AppError(httpStatus.FORBIDDEN, "Email not verified");
 //   }
 
-//   if (!user.isProfileComplete) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Please complete registration first"
-//     );
+//   const match = await user.comparePassword(password);
+
+//   if (!match) {
+//     throw new AppError(httpStatus.FORBIDDEN, "Wrong password");
 //   }
 
 //   const payload = {
@@ -527,366 +297,6 @@
 //   });
 // });
 
-// export const forgetPassword = catchAsync(async (req, res) => {
-//   const { email } = req.body;
-
-//   if (!email) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
-//   }
-
-//   const user = await User.findOne({ email: email.toLowerCase().trim() });
-
-//   if (!user) {
-//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-//   }
-
-//   const otp = generateOTP();
-
-//   user.setResetPasswordOTP(otp);
-//   await user.save();
-
-//   await sendEmail(user.email, "Reset OTP", `Your OTP is ${otp}`);
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "OTP sent",
-//     data: {
-//       email: user.email,
-//       resetOtpVerified: false,
-//       otp,
-//     },
-//   });
-// });
-
-// export const verifyResetPasswordOTP = catchAsync(async (req, res) => {
-//   const { email, otp } = req.body;
-
-//   if (!email || !otp) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email and OTP are required");
-//   }
-
-//   const user = await User.findOne({
-//     email: email.toLowerCase().trim(),
-//   }).select("+resetPasswordOtp.code +resetPasswordOtp.expiresAt");
-
-//   if (!user) {
-//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-//   }
-
-//   if (!user.isResetPasswordOTPValid(otp)) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
-//   }
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "OTP verified successfully",
-//     data: {
-//       email: user.email,
-//       resetOtpVerified: true,
-//     },
-//   });
-// });
-
-// export const resetPassword = catchAsync(async (req, res) => {
-//   const { email, otp, password, confirmPassword } = req.body;
-
-//   if (!email || !otp || !password || !confirmPassword) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "All fields required");
-//   }
-
-//   if (password !== confirmPassword) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Passwords not match");
-//   }
-
-//   const user = await User.findOne({
-//     email: email.toLowerCase().trim(),
-//   }).select("+password +resetPasswordOtp.code +resetPasswordOtp.expiresAt");
-
-//   if (!user) {
-//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-//   }
-
-//   if (!user.isResetPasswordOTPValid(otp)) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
-//   }
-
-//   user.password = password;
-//   user.clearResetPasswordOTP();
-
-//   await user.save();
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "Password reset successful",
-//   });
-// });
-
-// export const resendOTP = catchAsync(async (req, res) => {
-//   const { email } = req.body;
-
-//   if (!email) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
-//   }
-
-//   const user = await User.findOne({
-//     email: email.toLowerCase().trim(),
-//   });
-
-//   if (!user) {
-//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-//   }
-
-//   if (user.isEmailVerified) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email already verified");
-//   }
-
-//   const otp = generateOTP();
-
-//   user.setOTP(otp);
-//   await user.save();
-
-//   await sendEmail(user.email, "Email Verification OTP", `Your OTP is ${otp}`);
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "OTP resent successfully",
-//     data: {
-//       email: user.email,
-//       resetOtpVerified: false,
-//     },
-//   });
-// });
-
-// export const logout = catchAsync(async (req, res) => {
-//   const userId = req.user?._id;
-
-//   if (!userId) {
-//     throw new AppError(httpStatus.UNAUTHORIZED, "Unauthorized");
-//   }
-
-//   await User.findByIdAndUpdate(userId, {
-//     refreshToken: "",
-//   });
-
-//   res.clearCookie("refreshToken");
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "Logged out successfully",
-//     data: {},
-//   });
-// });
-
-
-import httpStatus from "http-status";
-import User from "../model/user.model.js";
-import AppError from "../errors/AppError.js";
-import catchAsync from "../utils/catchAsync.js";
-import sendResponse from "../utils/sendResponse.js";
-import { createToken, verifyToken } from "../utils/authToken.js";
-import { generateOTP } from "../utils/commonMethod.js";
-import { sendEmail } from "../utils/sendEmail.js";
-
-
-// ===============================
-// Register
-// ===============================
-
-export const register = catchAsync(async (req, res) => {
-  const {
-    firstName,
-    lastName,
-    email,
-    otp,
-    phoneNumber,
-    role,
-    area,
-  } = req.body;
-
-  if (!firstName || !lastName || !email || !otp) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "First name, last name, email and OTP are required"
-    );
-  }
-
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-  }).select("+otp.code +otp.expiresAt");
-
-  if (!user) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "User not found"
-    );
-  }
-
-  if (user.isProfileComplete) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Account already exists"
-    );
-  }
-
-  // Email must be verified first
-  if (!user.isEmailVerified) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Please verify your email first"
-    );
-  }
-
-  // Same OTP will be verified again
-  if (!user.isOTPValid(otp)) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Invalid or expired OTP"
-    );
-  }
-
-  user.firstName = firstName.trim();
-  user.lastName = lastName.trim();
-  user.phoneNumber = phoneNumber?.trim() || "";
-  user.area = area?.trim() || "";
-  user.role =
-    role === "tradesman"
-      ? "tradesman"
-      : "client";
-
-  user.isProfileComplete = true;
-
-  // OTP will be removed only after successful registration
-  // user.clearOTP();
-
-  await user.save();
-
-  sendResponse(res, {
-    statusCode: httpStatus.CREATED,
-    success: true,
-    message: "Registration completed successfully",
-    data: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      area: user.area,
-    },
-  });
-});
-
-
-// ===============================
-// Send Signup OTP
-// ===============================
-
-export const sendSignupOtp = catchAsync(async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email is required"
-    );
-  }
-
-  const normalizedEmail = email.toLowerCase().trim();
-
-  let user = await User.findOne({
-    email: normalizedEmail,
-  });
-
-  if (user && user.isProfileComplete) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email already registered. Please login instead."
-    );
-  }
-
-  if (!user) {
-    user = new User({
-      email: normalizedEmail,
-      role: "client",
-    });
-  }
-
-  const otp = generateOTP(6);
-
-  user.setOTP(otp);
-
-  // Reset verification status if requesting a new OTP
-  user.isEmailVerified = false;
-
-  await user.save({
-    validateBeforeSave: false,
-  });
-
-  await sendEmail(
-    user.email,
-    "Verify your email",
-    `Your OTP is ${otp}`
-  );
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "OTP sent successfully",
-    data: {
-      email: user.email,
-      otp, // Remove in production
-    },
-  });
-});
-
-
-// ===============================
-// Verify Email
-// ===============================
-
-export const verifyEmail = catchAsync(async (req, res) => {
-  const { email, otp } = req.body;
-
-  if (!email || !otp) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email and OTP are required"
-    );
-  }
-
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-  }).select("+otp.code +otp.expiresAt");
-
-  if (!user) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "User not found"
-    );
-  }
-
-  if (!user.isOTPValid(otp)) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Invalid or expired OTP"
-    );
-  }
-
-  // Email verified
-  user.isEmailVerified = true;
-
-  // Don't clear OTP here
-  await user.save();
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Email verified successfully",
-  });
-}); 
 
 export const login = catchAsync(async (req, res) => {
   const { email, otp } = req.body;
@@ -923,12 +333,16 @@ export const login = catchAsync(async (req, res) => {
     );
   }
 
+  // Verify OTP
   if (!user.isOTPValid(otp)) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "Invalid or expired OTP"
     );
   }
+
+  // Clear OTP after successful login
+  // user.clearOTP();
 
   const payload = {
     _id: user._id,
@@ -950,9 +364,6 @@ export const login = catchAsync(async (req, res) => {
 
   user.refreshToken = refreshToken;
 
-  // Login OTP use হয়ে গেলে clear করে দাও
-  user.clearOTP();
-
   await user.save();
 
   sendResponse(res, {
@@ -966,93 +377,62 @@ export const login = catchAsync(async (req, res) => {
       phoneNumber: user.phoneNumber,
       role: user.role,
       area: user.area,
+      isEmailVerified: user.isEmailVerified,
       accessToken,
       refreshToken,
     },
   });
 });
 
-// ===============================
-// Forget Password
-// ===============================
-
 export const forgetPassword = catchAsync(async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email is required"
-    );
+    throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
   }
 
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-  });
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
 
   if (!user) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "User not found"
-    );
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  const otp = generateOTP(6);
+  const otp = generateOTP();
 
   user.setResetPasswordOTP(otp);
-
   await user.save();
 
-  await sendEmail(
-    user.email,
-    "Reset Password OTP",
-    `Your OTP is ${otp}`
-  );
+  await sendEmail(user.email, "Reset OTP", `Your OTP is ${otp}`);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "OTP sent successfully",
+    message: "OTP sent",
     data: {
       email: user.email,
-      otp, // Remove in production
+      resetOtpVerified: false,
+      otp,
     },
   });
 });
-
-
-// ===============================
-// Verify Reset Password OTP
-// ===============================
 
 export const verifyResetPasswordOTP = catchAsync(async (req, res) => {
   const { email, otp } = req.body;
 
   if (!email || !otp) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email and OTP are required"
-    );
+    throw new AppError(httpStatus.BAD_REQUEST, "Email and OTP are required");
   }
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  }).select(
-    "+resetPasswordOtp.code +resetPasswordOtp.expiresAt"
-  );
+  }).select("+resetPasswordOtp.code +resetPasswordOtp.expiresAt");
 
   if (!user) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "User not found"
-    );
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
   if (!user.isResetPasswordOTPValid(otp)) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Invalid or expired OTP"
-    );
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
   }
 
   sendResponse(res, {
@@ -1066,60 +446,30 @@ export const verifyResetPasswordOTP = catchAsync(async (req, res) => {
   });
 });
 
-
-// ===============================
-// Reset Password
-// ===============================
-
 export const resetPassword = catchAsync(async (req, res) => {
-  const {
-    email,
-    otp,
-    password,
-    confirmPassword,
-  } = req.body;
+  const { email, otp, password, confirmPassword } = req.body;
 
-  if (
-    !email ||
-    !otp ||
-    !password ||
-    !confirmPassword
-  ) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "All fields are required"
-    );
+  if (!email || !otp || !password || !confirmPassword) {
+    throw new AppError(httpStatus.BAD_REQUEST, "All fields required");
   }
 
   if (password !== confirmPassword) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Passwords do not match"
-    );
+    throw new AppError(httpStatus.BAD_REQUEST, "Passwords not match");
   }
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  }).select(
-    "+password +resetPasswordOtp.code +resetPasswordOtp.expiresAt"
-  );
+  }).select("+password +resetPasswordOtp.code +resetPasswordOtp.expiresAt");
 
   if (!user) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "User not found"
-    );
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
   if (!user.isResetPasswordOTPValid(otp)) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Invalid or expired OTP"
-    );
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
   }
 
   user.password = password;
-
   user.clearResetPasswordOTP();
 
   await user.save();
@@ -1131,18 +481,11 @@ export const resetPassword = catchAsync(async (req, res) => {
   });
 });
 
-// ===============================
-// Resend OTP
-// ===============================
-
 export const resendOTP = catchAsync(async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email is required"
-    );
+    throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
   }
 
   const user = await User.findOne({
@@ -1150,31 +493,19 @@ export const resendOTP = catchAsync(async (req, res) => {
   });
 
   if (!user) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "User not found"
-    );
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  if (user.isProfileComplete) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Account already registered"
-    );
+  if (user.isEmailVerified) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email already verified");
   }
 
-  const otp = generateOTP(6);
+  const otp = generateOTP();
 
   user.setOTP(otp);
-  user.isEmailVerified = false;
-
   await user.save();
 
-  await sendEmail(
-    user.email,
-    "Email Verification OTP",
-    `Your OTP is ${otp}`
-  );
+  await sendEmail(user.email, "Email Verification OTP", `Your OTP is ${otp}`);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -1182,24 +513,16 @@ export const resendOTP = catchAsync(async (req, res) => {
     message: "OTP resent successfully",
     data: {
       email: user.email,
-      otp, // Remove in production
+      resetOtpVerified: false,
     },
   });
 });
-
-
-// ===============================
-// Logout
-// ===============================
 
 export const logout = catchAsync(async (req, res) => {
   const userId = req.user?._id;
 
   if (!userId) {
-    throw new AppError(
-      httpStatus.UNAUTHORIZED,
-      "Unauthorized"
-    );
+    throw new AppError(httpStatus.UNAUTHORIZED, "Unauthorized");
   }
 
   await User.findByIdAndUpdate(userId, {
