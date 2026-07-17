@@ -8,12 +8,12 @@ import { generateOTP } from "../utils/commonMethod.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
 
-
 // export const register = catchAsync(async (req, res) => {
 //   const {
 //     firstName,
 //     lastName,
 //     email,
+//     otp,
 //     password,
 //     confirmPassword,
 //     phoneNumber,
@@ -21,87 +21,47 @@ import { sendEmail } from "../utils/sendEmail.js";
 //     area,
 //   } = req.body;
 
-//   if (!firstName || !lastName || !email || !password || !confirmPassword) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "All fields required");
-//   }
-
-//   if (password !== confirmPassword) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Passwords not match");
-//   }
-
-//   const exists = await User.findOne({ email: email.toLowerCase().trim() });
-//   if (exists) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email already exists");
-//   }
-
-//   const user = await User.create({
-//     firstName: firstName.trim(),
-//     lastName: lastName.trim(),
-//     email: email.toLowerCase().trim(),
-//     password,
-//     phoneNumber,
-//     area: area ? area.trim() : "",
-//     role: ["client", "tradesman", "admin"].includes(role) ? role : "client",
-//   });
-
-//   const otp = generateOTP();
-
-//   user.setOTP(otp);
-//   await user.save();
-
-//   await sendEmail(user.email, "Email Verification OTP", `Your OTP is ${otp}`);
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.CREATED,
-//     success: true,
-//     message: "Registered successfully. Verify OTP sent to email.",
-//     data: {
-//       email: user.email,
-//       role: user.role,
-//       otp,
-//     },
-//   });
-// });
-
-
-
-// export const register = catchAsync(async (req, res) => {
-//   const {
-//     email,
-//     firstName,
-//     lastName,
-//     area,
-//     password,
-//     confirmPassword,
-//     phoneNumber,
-//     role,
-//   } = req.body;
-
-//   // verified email middleware/session থেকে
-//   // const email = req.user.email; // অথবা req.verifiedEmail
-
-//   if (!firstName || !lastName || !password || !confirmPassword) {
+//   if (
+//     !firstName ||
+//     !lastName ||
+//     !email ||
+//     !otp ||
+//     !password ||
+//     !confirmPassword
+//   ) {
 //     throw new AppError(httpStatus.BAD_REQUEST, "All fields are required");
 //   }
 
 //   if (password !== confirmPassword) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Passwords do not match");
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Passwords do not match"
+//     );
 //   }
 
 //   const user = await User.findOne({
 //     email: email.toLowerCase().trim(),
-//   });
+//   }).select("+otp.code +otp.expiresAt +password");
 
 //   if (!user) {
 //     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+
+    
 //   }
 
-//   if (!user.isEmailVerified) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email is not verified");
+//   // OTP verify
+//   if (!user.isOTPValid(otp)) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Invalid or expired OTP"
+//     );
 //   }
 
 //   if (user.isProfileComplete) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Account already exists");
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Account already exists"
+//     );
 //   }
 
 //   user.firstName = firstName.trim();
@@ -113,12 +73,15 @@ import { sendEmail } from "../utils/sendEmail.js";
 //     ? role
 //     : "client";
 
+//   user.isEmailVerified = true;
 //   user.isProfileComplete = true;
+
+//   user.clearOTP();
 
 //   await user.save();
 
 //   sendResponse(res, {
-//     statusCode: httpStatus.OK,
+//     statusCode: httpStatus.CREATED,
 //     success: true,
 //     message: "Registration completed successfully",
 //     data: {
@@ -132,51 +95,32 @@ import { sendEmail } from "../utils/sendEmail.js";
 // });
 
 
+
 export const register = catchAsync(async (req, res) => {
   const {
     firstName,
     lastName,
     email,
     otp,
-    password,
-    confirmPassword,
     phoneNumber,
     role,
     area,
   } = req.body;
 
-  if (
-    !firstName ||
-    !lastName ||
-    !email ||
-    !otp ||
-    !password ||
-    !confirmPassword
-  ) {
-    throw new AppError(httpStatus.BAD_REQUEST, "All fields are required");
-  }
-
-  if (password !== confirmPassword) {
+  if (!firstName || !lastName || !email || !otp) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Passwords do not match"
+      "First name, last name, email and OTP are required"
     );
   }
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  }).select("+otp.code +otp.expiresAt +password");
+  }).select("+otp.code +otp.expiresAt");
 
   if (!user) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-
-    
   }
-
-  // 👇 এই ৩ লাইন সাময়িক ভাবে বসাও
-console.log("DB OTP code:", user.otp?.code, "| type:", typeof user.otp?.code);
-console.log("Body OTP:", otp, "| type:", typeof otp);
-console.log("expiresAt:", user.otp?.expiresAt, "| now:", new Date());
 
   // OTP verify
   if (!user.isOTPValid(otp)) {
@@ -195,8 +139,7 @@ console.log("expiresAt:", user.otp?.expiresAt, "| now:", new Date());
 
   user.firstName = firstName.trim();
   user.lastName = lastName.trim();
-  user.password = password;
-  user.phoneNumber = phoneNumber || "";
+  user.phoneNumber = phoneNumber?.trim() || "";
   user.area = area?.trim() || "";
   user.role = ["client", "tradesman"].includes(role)
     ? role
