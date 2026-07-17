@@ -67,6 +67,10 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    isProfileComplete: {
+      type: Boolean,
+      default: false,
+    },
 
     isBlocked: {
       type: Boolean,
