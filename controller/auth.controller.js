@@ -145,7 +145,7 @@ export const register = catchAsync(async (req, res) => {
     ? role
     : "client";
 
-  user.isEmailVerified = true;
+  user.isEmailVerified = false;
   user.isProfileComplete = true;
 
   // user.clearOTP();
@@ -202,36 +202,67 @@ export const sendSignupOtp = catchAsync(async (req, res) => {
 });
 
 export const verifyEmail = catchAsync(async (req, res) => {
-  const { email, otp } = req.body;
+  const { email } = req.body;
 
-  if (!email || !otp) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Email and OTP are required");
+  if (!email) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Email is required"
+    );
   }
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  }).select("+otp.code +otp.expiresAt");
+  });
 
   if (!user) {
-    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "User not found"
+    );
   }
 
-  if (!user.isOTPValid(otp)) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
+  if (!user.isProfileComplete) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Please complete registration first"
+    );
   }
 
+  if (user.isEmailVerified) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Email already verified"
+    );
+  }
+
+  // Verify email
   user.isEmailVerified = true;
-  user.clearOTP();
+
+  // Generate Login OTP
+  const loginOtp = generateOTP(6);
+
+  user.setOTP(loginOtp);
 
   await user.save();
+
+  await sendEmail(
+    user.email,
+    "Login OTP",
+    `Your login OTP is ${loginOtp}`
+  );
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "Email verified successfully",
+    message:
+      "Email verified successfully. Login OTP sent to your email.",
+    data: {
+      email: user.email,
+      otp: loginOtp // remove in production
+    },
   });
 });
-
 
 // export const login = catchAsync(async (req, res) => {
 //   const { email, password } = req.body;
