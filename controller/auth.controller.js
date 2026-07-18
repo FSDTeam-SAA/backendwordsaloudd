@@ -229,12 +229,12 @@ export const verifyEmail = catchAsync(async (req, res) => {
     );
   }
 
-  if (user.isEmailVerified) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email already verified"
-    );
-  }
+  // if (user.isEmailVerified) {
+  //   throw new AppError(
+  //     httpStatus.BAD_REQUEST,
+  //     "Email already verified"
+  //   );
+  // }
 
   // Verify email
   user.isEmailVerified = true;
