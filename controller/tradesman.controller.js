@@ -307,6 +307,61 @@ export const getTradesmanById = catchAsync(async (req, res) => {
 
 
 
+// export const getMyDashboard = catchAsync(async (req, res) => {
+//   const profile = await TradesmanProfile.findOne({ user: req.user._id })
+//     .select("+profileViews")
+//     .populate("user", "firstName lastName phoneNumber area profileImage createdAt");
+
+//   if (!profile) {
+//     throw new AppError(httpStatus.NOT_FOUND, "Tradesman profile not found. Please complete onboarding first.");
+//   }
+
+//   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+//   const viewsThisWeek = profile.profileViews.filter((d) => d > sevenDaysAgo).length;
+
+//   const tradesListed = 1 + (profile.extraSkills?.length || 0);
+
+//   const breakdownAgg = await Review.aggregate([
+//     { $match: { tradesman: profile._id } },
+//     { $group: { _id: "$rating", count: { $sum: 1 } } },
+//   ]);
+//   const breakdownMap = breakdownAgg.reduce((acc, r) => {
+//     acc[r._id] = r.count;
+//     return acc;
+//   }, {});
+//   const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => ({
+//     star,
+//     count: breakdownMap[star] || 0,
+//   }));
+
+//   const recentReviews = await Review.find({ tradesman: profile._id })
+//     .populate("reviewer", "firstName lastName")
+//     .sort({ createdAt: -1 })
+//     .limit(10);
+
+//   const daysOnPlatform = Math.floor(
+//     (Date.now() - new Date(profile.user.createdAt).getTime()) / (24 * 60 * 60 * 1000)
+//   );
+
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "Dashboard fetched",
+//     data: {
+//       profile,
+//       viewsThisWeek,
+//       tradesListed,
+//       overallRating: profile.ratingAverage,
+//       reviewsTotal: profile.ratingCount,
+//       ratingBreakdown,
+//       recentReviews,
+//       daysOnPlatform,
+//     },
+//   });
+// });
+
+
+// "MY DASHBOARD" screen — stats card, rating breakdown, recent reviews
 export const getMyDashboard = catchAsync(async (req, res) => {
   const profile = await TradesmanProfile.findOne({ user: req.user._id })
     .select("+profileViews")
@@ -316,11 +371,14 @@ export const getMyDashboard = catchAsync(async (req, res) => {
     throw new AppError(httpStatus.NOT_FOUND, "Tradesman profile not found. Please complete onboarding first.");
   }
 
+  // "42 VIEWS THIS WEEK"
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const viewsThisWeek = profile.profileViews.filter((d) => d > sevenDaysAgo).length;
 
+  // "3 TRADES LISTED" = main + extras
   const tradesListed = 1 + (profile.extraSkills?.length || 0);
 
+  // "Rating breakdown" — count of reviews per star, 5 down to 1
   const breakdownAgg = await Review.aggregate([
     { $match: { tradesman: profile._id } },
     { $group: { _id: "$rating", count: { $sum: 1 } } },
@@ -334,14 +392,28 @@ export const getMyDashboard = catchAsync(async (req, res) => {
     count: breakdownMap[star] || 0,
   }));
 
+  // "RECENT REVIEWS"
   const recentReviews = await Review.find({ tradesman: profile._id })
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 })
     .limit(10);
 
+  // "14 days on Aturservicett"
   const daysOnPlatform = Math.floor(
     (Date.now() - new Date(profile.user.createdAt).getTime()) / (24 * 60 * 60 * 1000)
   );
+
+  // Ready-to-render badge for the dashboard header, so the frontend
+  // doesn't need its own pending/verified/rejected -> label/color mapping
+  const verificationBadgeMap = {
+    pending: { label: "Pending Verification"},
+    verified: { label: "✓ Verified"},
+    rejected: { label: "Rejected — please update your profile"},
+  };
+  const verification = {
+    status: profile.verificationStatus, // "pending" | "verified" | "rejected"
+    ...verificationBadgeMap[profile.verificationStatus],
+  };
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -349,6 +421,7 @@ export const getMyDashboard = catchAsync(async (req, res) => {
     message: "Dashboard fetched",
     data: {
       profile,
+      verification,
       viewsThisWeek,
       tradesListed,
       overallRating: profile.ratingAverage,

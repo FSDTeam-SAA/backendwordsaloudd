@@ -9,6 +9,7 @@ import {
   getAdvertisements,
   updateAdvertisement,
   deleteAdvertisement,
+  updateVerificationStatus
 } from "../controller/admin.controller.js";
 import { protect, restrictTo } from "../middleware/auth.middleware.js";
 
@@ -33,5 +34,6 @@ router.get("/advertisements", getAdvertisements);
 router.post("/advertisements", createAdvertisement);
 router.patch("/advertisements/:id", updateAdvertisement);
 router.delete("/advertisements/:id", deleteAdvertisement);
+router.put("/tradesman/:id/verification", updateVerificationStatus); 
 
 export default router;

@@ -286,3 +286,30 @@ export const deleteAdvertisement = catchAsync(async (req, res) => {
     message: "Advertisement deleted",
   });
 });
+
+
+// admin approves/rejects a tradesman's verification (pending -> verified/rejected)
+export const updateVerificationStatus = catchAsync(async (req, res) => {
+  const { status } = req.body; // "verified" | "rejected"
+
+  if (!["verified", "rejected"].includes(status)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "status must be 'verified' or 'rejected'");
+  }
+
+  const profile = await TradesmanProfile.findById(req.params.id);
+  if (!profile) throw new AppError(httpStatus.NOT_FOUND, "Tradesman profile not found");
+
+  profile.verificationStatus = status;
+  // a rejected tradesman shouldn't stay visible in search until re-approved
+  if (status === "rejected") profile.isLive = false;
+
+  await profile.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: `Tradesman ${status}`,
+    data: profile,
+  });
+});
+
