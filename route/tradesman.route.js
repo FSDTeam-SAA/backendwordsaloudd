@@ -9,7 +9,8 @@ import {
   browseTradesmen,
   getTradesmanById,
   requestContactChange,
-  getMyDashboard
+  getMyDashboard,
+  updateMyProfile
 } from "../controller/tradesman.controller.js";
 import { protect, restrictTo } from "../middleware/auth.middleware.js";
 import upload from "../middleware/multer.middleware.js";
@@ -31,5 +32,6 @@ router.post("/onboarding/pitch",upload.array("workPhotos", 6),setPitchAndRate);
 router.post("/onboarding/go-live", goLive);
 router.post("/onboarding/contact-change", requestContactChange);
 router.get("/me/dashboard", getMyDashboard);
+router.put("/me/profile",upload.fields([{ name: "avatar", maxCount: 1 }]),updateMyProfile);
 
 export default router;

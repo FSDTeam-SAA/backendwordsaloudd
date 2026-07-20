@@ -461,3 +461,95 @@ export const requestContactChange = catchAsync(async (req, res) => {
   });
 });
 
+// "Edit my profile" screen (Screen 7c) — Change photo, Pitch, Rate, Trades,
+// Home Area, Travel Range all submitted together via one "Save changes" button.
+// NOTE: name/phoneNumber are intentionally NOT editable here — see the
+// "Contact details are locked" section on the same screen; use
+// /tradesman/request-contact-change for that instead.
+export const updateMyProfile = catchAsync(async (req, res) => {
+  const { pitch, rateAmount, rateUnit, mainSkill, extraSkills, homeArea, travelRange } = req.body;
+
+  const profile = await getOrCreateProfile(req.user._id);
+
+  // ── YOUR TRADES (main + up to 2 extras) ──
+  if (mainSkill !== undefined) {
+    if (!SKILLS.includes(mainSkill)) {
+      throw new AppError(httpStatus.BAD_REQUEST, "A valid main skill is required");
+    }
+    profile.mainSkill = mainSkill;
+  }
+  if (extraSkills !== undefined) {
+    const parsedExtras = typeof extraSkills === "string" ? JSON.parse(extraSkills) : extraSkills;
+    const extras = Array.isArray(parsedExtras) ? parsedExtras.slice(0, 2) : [];
+    extras.forEach((s) => {
+      if (!SKILLS.includes(s)) {
+        throw new AppError(httpStatus.BAD_REQUEST, `Invalid skill: ${s}`);
+      }
+    });
+    profile.extraSkills = extras;
+  }
+
+  // ── HOME AREA / TRAVEL RANGE ──
+  if (homeArea !== undefined) profile.homeArea = homeArea;
+  if (travelRange !== undefined) {
+    const normalizedRange = normalizeTravelRange(travelRange);
+    if (!normalizedRange) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `A valid travel range is required. Accepted values: ${TRAVEL_RANGES.join(", ")}`
+      );
+    }
+    profile.travelRange = normalizedRange;
+  }
+
+  // ── YOUR PITCH (BIO) ──
+  if (pitch !== undefined) {
+    if (pitch.length > 140) {
+      throw new AppError(httpStatus.BAD_REQUEST, "Pitch must be 140 characters or less");
+    }
+    profile.pitch = pitch;
+  }
+
+  // ── TYPICAL RATE ──
+  if (rateAmount !== undefined) profile.typicalRate.amount = Number(rateAmount);
+  if (rateUnit) {
+    const normalizedUnit = normalizeRateUnit(rateUnit);
+    if (!normalizedUnit) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid rate unit. Accepted values: Per day, Per hour, Per job"
+      );
+    }
+    profile.typicalRate.unit = normalizedUnit;
+  }
+
+  await profile.save();
+
+  // ── CHANGE PHOTO (avatar, stored on User, not TradesmanProfile) ──
+  const avatarFile = req.files?.avatar?.[0];
+  let user = req.user;
+  if (avatarFile) {
+    const uploadResult = await uploadOnCloudinary(avatarFile.buffer, {
+      folder: "aturservicett/avatars",
+    });
+    user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        profileImage: { public_id: uploadResult.public_id, url: uploadResult.secure_url },
+      },
+      { new: true }
+    );
+  }
+
+  const populatedProfile = await TradesmanProfile.findById(profile._id).populate(
+    "user",
+    "firstName lastName email phoneNumber area profileImage"
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Profile updated successfully",
+    data: populatedProfile,
+  });
+});
