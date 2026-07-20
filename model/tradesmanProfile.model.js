@@ -94,7 +94,28 @@ const tradesmanProfileSchema = new Schema(
       type: Number,
       default: 0,
     },
+// each entry = one profile-detail view timestamp, used to compute
+// "Views this week" on the dashboard.
+profileViews: {
+  type: [Date],
+  default: [],
+  select: false,
+},
+
+// "Need to update? Email support@aturservicett.com" flow
+contactChangeRequest: {
+  requestedName: { type: String, default: "" },
+  requestedPhoneNumber: { type: String, default: "" },
+  reason: { type: String, default: "" },
+  status: {
+    type: String,
+    enum: ["none", "pending", "resolved"],
+    default: "none",
   },
+  requestedAt: { type: Date, default: null },
+},
+  },
+  
   {
     timestamps: true,
   }

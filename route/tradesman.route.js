@@ -8,6 +8,8 @@ import {
   getCategories,
   browseTradesmen,
   getTradesmanById,
+  requestContactChange,
+  getMyDashboard
 } from "../controller/tradesman.controller.js";
 import { protect, restrictTo } from "../middleware/auth.middleware.js";
 import upload from "../middleware/multer.middleware.js";
@@ -25,11 +27,9 @@ router.use(protect, restrictTo("tradesman"));
 router.get("/me/profile", getMyProfile);
 router.post("/onboarding/skills", setSkills);
 router.post("/onboarding/work-area", setWorkArea);
-router.post(
-  "/onboarding/pitch",
-  upload.array("workPhotos", 6),
-  setPitchAndRate
-);
+router.post("/onboarding/pitch",upload.array("workPhotos", 6),setPitchAndRate);
 router.post("/onboarding/go-live", goLive);
+router.post("/onboarding/contact-change", requestContactChange);
+router.get("/me/dashboard", getMyDashboard);
 
 export default router;

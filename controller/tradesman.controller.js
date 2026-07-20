@@ -252,6 +252,29 @@ export const browseTradesmen = catchAsync(async (req, res) => {
 });
 
 // tradesman detail page - about, recent work, reviews
+// export const getTradesmanById = catchAsync(async (req, res) => {
+//   const profile = await TradesmanProfile.findById(req.params.id).populate(
+//     "user",
+//     "firstName lastName phoneNumber area profileImage"
+//   );
+
+//   if (!profile) {
+//     throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
+//   }
+
+//   const reviews = await Review.find({ tradesman: profile._id })
+//     .populate("reviewer", "firstName lastName")
+//     .sort({ createdAt: -1 })
+//     .limit(20);
+
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "Tradesman fetched",
+//     data: { profile, reviews },
+//   });
+// });
+
 export const getTradesmanById = catchAsync(async (req, res) => {
   const profile = await TradesmanProfile.findById(req.params.id).populate(
     "user",
@@ -260,6 +283,13 @@ export const getTradesmanById = catchAsync(async (req, res) => {
 
   if (!profile) {
     throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
+  }
+
+  if (!req.user || String(req.user._id) !== String(profile.user._id)) {
+    await TradesmanProfile.updateOne(
+      { _id: profile._id },
+      { $push: { profileViews: new Date() } }
+    );
   }
 
   const reviews = await Review.find({ tradesman: profile._id })
@@ -274,3 +304,87 @@ export const getTradesmanById = catchAsync(async (req, res) => {
     data: { profile, reviews },
   });
 });
+
+
+
+export const getMyDashboard = catchAsync(async (req, res) => {
+  const profile = await TradesmanProfile.findOne({ user: req.user._id })
+    .select("+profileViews")
+    .populate("user", "firstName lastName phoneNumber area profileImage createdAt");
+
+  if (!profile) {
+    throw new AppError(httpStatus.NOT_FOUND, "Tradesman profile not found. Please complete onboarding first.");
+  }
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const viewsThisWeek = profile.profileViews.filter((d) => d > sevenDaysAgo).length;
+
+  const tradesListed = 1 + (profile.extraSkills?.length || 0);
+
+  const breakdownAgg = await Review.aggregate([
+    { $match: { tradesman: profile._id } },
+    { $group: { _id: "$rating", count: { $sum: 1 } } },
+  ]);
+  const breakdownMap = breakdownAgg.reduce((acc, r) => {
+    acc[r._id] = r.count;
+    return acc;
+  }, {});
+  const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: breakdownMap[star] || 0,
+  }));
+
+  const recentReviews = await Review.find({ tradesman: profile._id })
+    .populate("reviewer", "firstName lastName")
+    .sort({ createdAt: -1 })
+    .limit(10);
+
+  const daysOnPlatform = Math.floor(
+    (Date.now() - new Date(profile.user.createdAt).getTime()) / (24 * 60 * 60 * 1000)
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Dashboard fetched",
+    data: {
+      profile,
+      viewsThisWeek,
+      tradesListed,
+      overallRating: profile.ratingAverage,
+      reviewsTotal: profile.ratingCount,
+      ratingBreakdown,
+      recentReviews,
+      daysOnPlatform,
+    },
+  });
+});
+
+
+export const requestContactChange = catchAsync(async (req, res) => {
+  const { requestedName, requestedPhoneNumber, reason } = req.body;
+
+  if (!requestedName && !requestedPhoneNumber) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Provide a new name or phone number to request a change");
+  }
+
+  const profile = await getOrCreateProfile(req.user._id);
+
+  profile.contactChangeRequest = {
+    requestedName: requestedName || "",
+    requestedPhoneNumber: requestedPhoneNumber || "",
+    reason: reason || "",
+    status: "pending",
+    requestedAt: new Date(),
+  };
+
+  await profile.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Change request submitted. Our team will review and update it after re-verification.",
+    data: profile.contactChangeRequest,
+  });
+});
+
