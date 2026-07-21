@@ -9,9 +9,6 @@ const userSchema = new Schema(
       trim: true,
     },
 
-    // Public listings only ever show first name + last initial,
-    // matching the "Only your first and last name initial will appear
-    // publicly" note on the sign up screen.
     lastName: {
       type: String,
       // required: [true, "Last name is required"],
@@ -45,7 +42,6 @@ const userSchema = new Schema(
       select: false,
     },
 
-    // "I need a tradesman" -> client, "I am a tradesman" -> tradesman
     role: {
       type: String,
       enum: ["client", "tradesman", "admin"],
@@ -92,7 +88,6 @@ const userSchema = new Schema(
   }
 );
 
-// hash password before save
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
   const salt = await bcrypt.genSalt(10);
@@ -147,7 +142,7 @@ userSchema.virtual("name").get(function () {
   return `${this.firstName} ${this.lastName}`.trim();
 });
 
-// public display name -> "Adam L." style, used on reviews/listings
+
 userSchema.methods.publicName = function () {
   const lastInitial = this.lastName ? `${this.lastName.charAt(0)}.` : "";
   return `${this.firstName} ${lastInitial}`.trim();

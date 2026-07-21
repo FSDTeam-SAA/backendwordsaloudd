@@ -122,7 +122,6 @@ export const register = catchAsync(async (req, res) => {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  // OTP verify
   if (!user.isOTPValid(otp)) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
@@ -166,7 +165,7 @@ export const register = catchAsync(async (req, res) => {
   });
 });
 
-// ── Sign up Step 1 — "Your Email" box on the Sign up screen ──────────────
+
 export const sendSignupOtp = catchAsync(async (req, res) => {
   const { email } = req.body;
 
@@ -182,13 +181,12 @@ export const sendSignupOtp = catchAsync(async (req, res) => {
   }
 
   if (!user) {
-    // partial user — only email exists, everything else filled in at Step 3
     user = new User({ email: normalizedEmail, role: "client" });
   }
 
-  const otp = generateOTP(6); // ✅ এখন 6-digit OTP
+  const otp = generateOTP(6); 
   user.setOTP(otp);
-  user.isOTPVerified = false; // reset in case they're retrying
+  user.isOTPVerified = false; 
   await user.save({ validateBeforeSave: false });
 
   await sendEmail(user.email, "Verify your email", `Your OTP is ${otp}`);
@@ -197,7 +195,7 @@ export const sendSignupOtp = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: "OTP sent to your email",
-    data: { email: user.email, otp }, // NOTE: dev-only, remove `otp` before production
+    data: { email: user.email, otp }, 
   });
 });
 
@@ -236,10 +234,8 @@ export const verifyEmail = catchAsync(async (req, res) => {
   //   );
   // }
 
-  // Verify email
   user.isEmailVerified = true;
 
-  // Generate Login OTP
   const loginOtp = generateOTP(6);
 
   user.setOTP(loginOtp);
@@ -259,7 +255,7 @@ export const verifyEmail = catchAsync(async (req, res) => {
       "Email verified successfully. Login OTP sent to your email.",
     data: {
       email: user.email,
-      otp: loginOtp // remove in production
+      otp: loginOtp 
     },
   });
 });

@@ -13,7 +13,6 @@ const MONTHS = [
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ];
 
-// "Dashboard Overview" - totals + charts
 export const getDashboardOverview = catchAsync(async (req, res) => {
   const [totalUser, totalClient, totalTradesman, totalAdvertisement] =
     await Promise.all([
@@ -23,7 +22,6 @@ export const getDashboardOverview = catchAsync(async (req, res) => {
       Advertisement.countDocuments({}),
     ]);
 
-  // Monthly occupancy rate: % of this week's signups (by weekday) that are live tradesmen
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
@@ -43,7 +41,6 @@ export const getDashboardOverview = catchAsync(async (req, res) => {
     return { day, rate };
   });
 
-  // User registration rate - signups per month, this year
   const startOfYear = new Date(new Date().getFullYear(), 0, 1);
   const yearUsers = await User.find({ createdAt: { $gte: startOfYear } }).select(
     "createdAt"
@@ -71,7 +68,6 @@ export const getDashboardOverview = catchAsync(async (req, res) => {
   });
 });
 
-// "User list" - All Users / Client / Tradesman / VIP tabs
 export const getUserList = catchAsync(async (req, res) => {
   const { type = "all", page = 1, limit = 20 } = req.query;
 
@@ -120,7 +116,6 @@ export const getUserList = catchAsync(async (req, res) => {
   });
 });
 
-// green dot / red dot in Actions - activate or block a user
 export const toggleUserBlock = catchAsync(async (req, res) => {
   const user = await User.findById(req.params.userId);
   if (!user) throw new AppError(httpStatus.NOT_FOUND, "User not found");
@@ -136,7 +131,6 @@ export const toggleUserBlock = catchAsync(async (req, res) => {
   });
 });
 
-// red trash icon in Actions
 export const deleteUser = catchAsync(async (req, res) => {
   const user = await User.findById(req.params.userId);
   if (!user) throw new AppError(httpStatus.NOT_FOUND, "User not found");
@@ -151,7 +145,6 @@ export const deleteUser = catchAsync(async (req, res) => {
   });
 });
 
-// "Add VIP Member" modal
 export const addVipMember = catchAsync(async (req, res) => {
   const {
     userId,
@@ -222,8 +215,6 @@ export const addVipMember = catchAsync(async (req, res) => {
   });
 });
 
-// ---- Advertisement CRUD ----
-
 export const createAdvertisement = catchAsync(async (req, res) => {
   const { title, description } = req.body;
   if (!title || !description) {
@@ -287,10 +278,8 @@ export const deleteAdvertisement = catchAsync(async (req, res) => {
   });
 });
 
-
-// admin approves/rejects a tradesman's verification (pending -> verified/rejected)
 export const updateVerificationStatus = catchAsync(async (req, res) => {
-  const { status } = req.body; // "verified" | "rejected"
+  const { status } = req.body;
 
   if (!["verified", "rejected"].includes(status)) {
     throw new AppError(httpStatus.BAD_REQUEST, "status must be 'verified' or 'rejected'");
@@ -300,7 +289,6 @@ export const updateVerificationStatus = catchAsync(async (req, res) => {
   if (!profile) throw new AppError(httpStatus.NOT_FOUND, "Tradesman profile not found");
 
   profile.verificationStatus = status;
-  // a rejected tradesman shouldn't stay visible in search until re-approved
   if (status === "rejected") profile.isLive = false;
 
   await profile.save();

@@ -25,7 +25,7 @@ const recalcRating = async (tradesmanId) => {
   });
 };
 
-// "How was Devon? Your honest opinion helps other Trinis."
+
 export const postReview = catchAsync(async (req, res) => {
   const { tradesmanId } = req.params;
   const { rating, ratingLabel, reviewText } = req.body;

@@ -11,12 +11,6 @@ const tradesmanProfileSchema = new Schema(
       index: true,
     },
 
-    // "Tap your main first, then two extras" - main skill + up to 2 extras
-    // NOTE: not `required` at schema level on purpose - this profile is built
-    // up across multiple onboarding steps (skills -> work-area -> pitch ->
-    // go-live), so each intermediate save must not fail full-document
-    // validation before later steps have filled in their fields.
-    // Completeness is enforced explicitly in the goLive controller instead.
     mainSkill: {
       type: String,
       enum: SKILLS,
@@ -41,7 +35,6 @@ const tradesmanProfileSchema = new Schema(
       enum: TRAVEL_RANGES,
     },
 
-    // "Tell clients about yourself. Keep it real. 140 chars."
     pitch: {
       type: String,
       trim: true,
@@ -61,7 +54,6 @@ const tradesmanProfileSchema = new Schema(
       },
     ],
 
-    // Pending verification -> Live, shown on the "You're live!" screen
     verificationStatus: {
       type: String,
       enum: ["pending", "verified", "rejected"],
@@ -94,15 +86,12 @@ const tradesmanProfileSchema = new Schema(
       type: Number,
       default: 0,
     },
-// each entry = one profile-detail view timestamp, used to compute
-// "Views this week" on the dashboard.
-profileViews: {
-  type: [Date],
-  default: [],
-  select: false,
+    profileViews: {
+      type: [Date],
+      default: [],
+      select: false,
 },
 
-// "Need to update? Email support@aturservicett.com" flow
 contactChangeRequest: {
   requestedName: { type: String, default: "" },
   requestedPhoneNumber: { type: String, default: "" },

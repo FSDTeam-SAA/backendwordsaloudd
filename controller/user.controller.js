@@ -9,7 +9,6 @@ import {
   deleteFromCloudinary,
 } from "../utils/commonMethod.js";
 
-// "Profile" screen
 export const getMe = catchAsync(async (req, res) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -19,7 +18,7 @@ export const getMe = catchAsync(async (req, res) => {
   });
 });
 
-// "Edit Profile" screen - name + avatar
+
 export const updateMe = catchAsync(async (req, res) => {
   const { firstName, lastName, area, phoneNumber } = req.body;
   const user = req.user;
@@ -49,7 +48,6 @@ export const updateMe = catchAsync(async (req, res) => {
   });
 });
 
-// "Change Password" (Settings screen)
 export const changePassword = catchAsync(async (req, res) => {
   const { currentPassword, newPassword, confirmPassword } = req.body;
 
@@ -77,7 +75,6 @@ export const changePassword = catchAsync(async (req, res) => {
   });
 });
 
-// "Account Management -> Delete Account"
 export const deleteMe = catchAsync(async (req, res) => {
   const user = req.user;
 

@@ -23,7 +23,6 @@ const reviewSchema = new Schema(
       max: 5,
     },
 
-    // "Excellent - would recommend" style summary label
     ratingLabel: {
       type: String,
       trim: true,
@@ -41,7 +40,6 @@ const reviewSchema = new Schema(
   }
 );
 
-// one review per client per tradesman
 reviewSchema.index({ tradesman: 1, reviewer: 1 }, { unique: true });
 
 const Review = mongoose.model("Review", reviewSchema);

@@ -4,7 +4,6 @@ import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
 
-// "Tell us about your business. We'll be in touch when ad slots open."
 export const sendInquiry = catchAsync(async (req, res) => {
   const { businessName, whatsappPhone, tradesToAdvertiseTo } = req.body;
 

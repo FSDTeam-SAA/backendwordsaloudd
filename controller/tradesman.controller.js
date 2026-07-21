@@ -16,7 +16,6 @@ const getOrCreateProfile = async (userId) => {
   return profile;
 };
 
-// Onboarding Step 1 - "What can you do?" (main skill + up to 2 extras)
 export const setSkills = catchAsync(async (req, res) => {
   const { mainSkill, extraSkills } = req.body;
 
@@ -44,7 +43,6 @@ export const setSkills = catchAsync(async (req, res) => {
   });
 });
 
-// Onboarding Step 2 - "What can you work?" (home area + travel range)
 export const setWorkArea = catchAsync(async (req, res) => {
   const { homeArea, travelRange } = req.body;
 
@@ -72,7 +70,6 @@ export const setWorkArea = catchAsync(async (req, res) => {
   });
 });
 
-// Onboarding Step 3 - "Tell clients about yourself" (pitch, rate, work photos)
 export const setPitchAndRate = catchAsync(async (req, res) => {
   const { pitch, rateAmount, rateUnit } = req.body;
 
@@ -118,7 +115,6 @@ export const setPitchAndRate = catchAsync(async (req, res) => {
   });
 });
 
-// "You're live!" - submit for verification / go live
 export const goLive = catchAsync(async (req, res) => {
   const profile = await TradesmanProfile.findOne({ user: req.user._id });
   if (!profile) {
@@ -145,7 +141,6 @@ export const goLive = catchAsync(async (req, res) => {
   });
 });
 
-// logged in tradesman's own profile
 export const getMyProfile = catchAsync(async (req, res) => {
   const profile = await TradesmanProfile.findOne({ user: req.user._id }).populate(
     "user",
@@ -160,7 +155,6 @@ export const getMyProfile = catchAsync(async (req, res) => {
   });
 });
 
-// Home screen grid: "Plumber 73 Listed", "Electrician 73 Listed" etc.
 export const getCategories = catchAsync(async (req, res) => {
   const counts = await TradesmanProfile.aggregate([
     { $match: { isLive: true } },
@@ -185,7 +179,6 @@ export const getCategories = catchAsync(async (req, res) => {
   });
 });
 
-// "Plumbers - 12 plumber Near You / All Plumber sorted by Rating"
 export const browseTradesmen = catchAsync(async (req, res) => {
   const {
     skill,
@@ -361,7 +354,6 @@ export const getTradesmanById = catchAsync(async (req, res) => {
 // });
 
 
-// "MY DASHBOARD" screen — stats card, rating breakdown, recent reviews
 export const getMyDashboard = catchAsync(async (req, res) => {
   const profile = await TradesmanProfile.findOne({ user: req.user._id })
     .select("+profileViews")
@@ -371,14 +363,11 @@ export const getMyDashboard = catchAsync(async (req, res) => {
     throw new AppError(httpStatus.NOT_FOUND, "Tradesman profile not found. Please complete onboarding first.");
   }
 
-  // "42 VIEWS THIS WEEK"
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const viewsThisWeek = profile.profileViews.filter((d) => d > sevenDaysAgo).length;
 
-  // "3 TRADES LISTED" = main + extras
   const tradesListed = 1 + (profile.extraSkills?.length || 0);
 
-  // "Rating breakdown" — count of reviews per star, 5 down to 1
   const breakdownAgg = await Review.aggregate([
     { $match: { tradesman: profile._id } },
     { $group: { _id: "$rating", count: { $sum: 1 } } },
@@ -392,26 +381,22 @@ export const getMyDashboard = catchAsync(async (req, res) => {
     count: breakdownMap[star] || 0,
   }));
 
-  // "RECENT REVIEWS"
   const recentReviews = await Review.find({ tradesman: profile._id })
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 })
     .limit(10);
 
-  // "14 days on Aturservicett"
   const daysOnPlatform = Math.floor(
     (Date.now() - new Date(profile.user.createdAt).getTime()) / (24 * 60 * 60 * 1000)
   );
 
-  // Ready-to-render badge for the dashboard header, so the frontend
-  // doesn't need its own pending/verified/rejected -> label/color mapping
   const verificationBadgeMap = {
     pending: { label: "Pending Verification"},
     verified: { label: "✓ Verified"},
     rejected: { label: "Rejected — please update your profile"},
   };
   const verification = {
-    status: profile.verificationStatus, // "pending" | "verified" | "rejected"
+    status: profile.verificationStatus, 
     ...verificationBadgeMap[profile.verificationStatus],
   };
 
@@ -461,17 +446,11 @@ export const requestContactChange = catchAsync(async (req, res) => {
   });
 });
 
-// "Edit my profile" screen (Screen 7c) — Change photo, Pitch, Rate, Trades,
-// Home Area, Travel Range all submitted together via one "Save changes" button.
-// NOTE: name/phoneNumber are intentionally NOT editable here — see the
-// "Contact details are locked" section on the same screen; use
-// /tradesman/request-contact-change for that instead.
 export const updateMyProfile = catchAsync(async (req, res) => {
   const { pitch, rateAmount, rateUnit, mainSkill, extraSkills, homeArea, travelRange } = req.body;
 
   const profile = await getOrCreateProfile(req.user._id);
 
-  // ── YOUR TRADES (main + up to 2 extras) ──
   if (mainSkill !== undefined) {
     if (!SKILLS.includes(mainSkill)) {
       throw new AppError(httpStatus.BAD_REQUEST, "A valid main skill is required");
@@ -489,7 +468,6 @@ export const updateMyProfile = catchAsync(async (req, res) => {
     profile.extraSkills = extras;
   }
 
-  // ── HOME AREA / TRAVEL RANGE ──
   if (homeArea !== undefined) profile.homeArea = homeArea;
   if (travelRange !== undefined) {
     const normalizedRange = normalizeTravelRange(travelRange);
@@ -502,7 +480,6 @@ export const updateMyProfile = catchAsync(async (req, res) => {
     profile.travelRange = normalizedRange;
   }
 
-  // ── YOUR PITCH (BIO) ──
   if (pitch !== undefined) {
     if (pitch.length > 140) {
       throw new AppError(httpStatus.BAD_REQUEST, "Pitch must be 140 characters or less");
@@ -510,7 +487,6 @@ export const updateMyProfile = catchAsync(async (req, res) => {
     profile.pitch = pitch;
   }
 
-  // ── TYPICAL RATE ──
   if (rateAmount !== undefined) profile.typicalRate.amount = Number(rateAmount);
   if (rateUnit) {
     const normalizedUnit = normalizeRateUnit(rateUnit);
@@ -525,7 +501,6 @@ export const updateMyProfile = catchAsync(async (req, res) => {
 
   await profile.save();
 
-  // ── CHANGE PHOTO (avatar, stored on User, not TradesmanProfile) ──
   const avatarFile = req.files?.avatar?.[0];
   let user = req.user;
   if (avatarFile) {

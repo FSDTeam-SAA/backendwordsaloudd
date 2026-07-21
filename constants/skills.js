@@ -20,6 +20,8 @@ export const SKILLS = [
   "Landscaper",
   "Auto Body",
   "Contractor",
+  "Maid Service",
+  "Caterer"
 ];
 
 // Travel range options on the "What can you work?" onboarding screen.

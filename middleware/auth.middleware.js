@@ -31,7 +31,6 @@ export const protect = catchAsync(async (req, res, next) => {
   next();
 });
 
-// only allow when email is verified (skip for e.g. resend otp routes)
 export const requireVerified = catchAsync(async (req, res, next) => {
   if (!req.user.isEmailVerified) {
     throw new AppError(httpStatus.FORBIDDEN, "Please verify your email first");
@@ -39,7 +38,6 @@ export const requireVerified = catchAsync(async (req, res, next) => {
   next();
 });
 
-// restrictTo("admin"), restrictTo("tradesman", "admin") etc.
 export const restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user?.role)) {
