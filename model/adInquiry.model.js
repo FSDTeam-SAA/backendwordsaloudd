@@ -20,11 +20,16 @@ const adInquirySchema = new Schema(
       trim: true,
     },
 
+    // tradesToAdvertiseTo: {
+    //   type: String,
+    //   trim: true,
+    //   default: "",
+    // },
+
     tradesToAdvertiseTo: {
-      type: String,
-      trim: true,
-      default: "",
-    },
+      type: [String],   
+      default: [],        
+},
 
     status: {
       type: String,
