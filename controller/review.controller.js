@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import httpStatus from "http-status";
 import Review from "../model/review.model.js";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
@@ -7,7 +8,7 @@ import sendResponse from "../utils/sendResponse.js";
 
 const recalcRating = async (tradesmanId) => {
   const stats = await Review.aggregate([
-    { $match: { tradesman: tradesmanId } },
+     { $match: { tradesman: new mongoose.Types.ObjectId(tradesmanId) } },
     {
       $group: {
         _id: "$tradesman",
