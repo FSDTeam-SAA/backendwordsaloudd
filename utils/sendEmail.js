@@ -1,9 +1,7 @@
 import nodemailer from "nodemailer";
 
 export const sendEmail = async (to, subject, html) => {
-  // If email credentials are not configured, skip silently in dev
-  // so the rest of the flow (which returns the OTP in the API response
-  // for development/testing) still works without crashing.
+  
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.log(`[sendEmail skipped - no SMTP config] To: ${to} | ${subject}`);
     return;

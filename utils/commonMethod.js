@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
 
-// Generate a random numeric OTP
 export const generateOTP = (length = 4) => {
   const min = 10 ** (length - 1);
   const max = 10 ** length - 1;
@@ -13,7 +12,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Upload a file buffer (from multer memoryStorage) to Cloudinary
 export const uploadOnCloudinary = (fileBuffer, options = {}) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(

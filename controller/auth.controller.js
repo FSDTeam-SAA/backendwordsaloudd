@@ -368,7 +368,6 @@ export const login = catchAsync(async (req, res) => {
     );
   }
 
-  // Clear OTP after successful login
   // user.clearOTP();
 
   const payload = {

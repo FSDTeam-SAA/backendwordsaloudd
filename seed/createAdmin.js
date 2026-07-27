@@ -1,6 +1,3 @@
-// Run with: node seed/createAdmin.js
-// Creates (or updates) one admin account so you can log in to the
-// admin dashboard screens right away.
 import "dotenv/config";
 import mongoose from "mongoose";
 import User from "../model/user.model.js";
@@ -36,3 +33,4 @@ run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
