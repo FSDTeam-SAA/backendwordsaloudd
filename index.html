@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify OTP - Aturservicett</title>
+<style>
+  :root{
+    --cream:#F5EDE3;
+    --maroon:#8C2F1F;
+    --maroon-dark:#6E2318;
+    --gold:#E8B347;
+    --ink:#221512;
+    --muted:#8A7A70;
+    --line:#E3D5C4;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',Helvetica,Arial,sans-serif;
+    background:#3a3634;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    padding:20px;
+  }
+  .phone{
+    width:375px;
+    max-width:100%;
+    background:var(--cream);
+    border-radius:28px;
+    overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,0.4);
+  }
+  .statusbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 22px 6px;
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .content{
+    padding:10px 26px 32px;
+  }
+  .back{
+    font-size:20px;
+    color:var(--ink);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:6px 0 18px;
+  }
+  h1{
+    font-size:24px;
+    margin:0 0 6px;
+    color:var(--ink);
+    font-weight:700;
+  }
+  h1 span{ color:var(--maroon); }
+  .sub{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 30px;
+  }
+  .otp-icon{
+    width:64px;
+    height:64px;
+    border-radius:16px;
+    background:var(--gold);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0 auto 22px;
+  }
+  .otp-icon svg{ width:30px; height:30px; }
+  .center-text{
+    text-align:center;
+    margin-bottom:28px;
+  }
+  .center-text .to{
+    font-size:13px;
+    color:var(--muted);
+  }
+  .center-text .email{
+    font-size:15px;
+    font-weight:600;
+    color:var(--ink);
+    margin-top:2px;
+  }
+  label{
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    display:block;
+    margin-bottom:10px;
+  }
+  .otp-row{
+    display:flex;
+    gap:8px;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .otp-row input{
+    width:15%;
+    aspect-ratio:1/1;
+    text-align:center;
+    font-size:20px;
+    font-weight:700;
+    color:var(--ink);
+    background:#fff;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .otp-row input:focus{
+    border-color:var(--maroon);
+    box-shadow:0 0 0 3px rgba(140,47,31,0.12);
+  }
+  .otp-row input.filled{
+    border-color:var(--gold);
+    background:#FFF8E9;
+  }
+  .resend-row{
+    text-align:center;
+    font-size:13px;
+    color:var(--muted);
+    margin:14px 0 34px;
+  }
+  .resend-row a{
+    color:var(--maroon);
+    font-weight:600;
+    text-decoration:none;
+  }
+  .resend-row a.disabled{
+    color:var(--muted);
+    pointer-events:none;
+  }
+  .timer{
+    font-weight:600;
+    color:var(--ink);
+  }
+  .btn{
+    width:100%;
+    padding:16px;
+    border:none;
+    border-radius:14px;
+    background:var(--maroon);
+    color:#fff;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    transition:background .15s, opacity .15s;
+  }
+  .btn:hover{ background:var(--maroon-dark); }
+  .btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+  .error-msg{
+    text-align:center;
+    color:var(--maroon);
+    font-size:13px;
+    font-weight:600;
+    min-height:18px;
+    margin-bottom:16px;
+  }
+  .home-indicator{
+    display:flex;
+    justify-content:center;
+    padding:10px 0 4px;
+  }
+  .home-indicator .bar{
+    width:120px;
+    height:5px;
+    border-radius:3px;
+    background:rgba(0,0,0,0.25);
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="statusbar">
+    <span>9:41</span>
+    <span>📶 📡 🔋</span>
+  </div>
+
+  <div class="content">
+    <button class="back" aria-label="Go back">←</button>
+
+    <h1>Verify it's <span>you.</span></h1>
+    <p class="sub">We've sent a 6-digit code to confirm your number.</p>
+
+    <div class="otp-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8C2F1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8"/>
+        <rect x="2" y="4" width="20" height="16" rx="2"/>
+      </svg>
+    </div>
+
+    <div class="center-text">
+      <div class="to">Code sent to</div>
+      <div class="email" id="phoneDisplay">+1 868 •• •• 512</div>
+    </div>
+
+    <label for="otp1">SMS Code</label>
+    <div class="otp-row" id="otpRow">
+      <input type="text" inputmode="numeric" maxlength="1" id="otp1">
+      <input type="text" inputmode="numeric" maxlength="1" id="otp2">
+      <input type="text" inputmode="numeric" maxlength="1" id="otp3">
+      <input type="text" inputmode="numeric" maxlength="1" id="otp4">
+      <input type="text" inputmode="numeric" maxlength="1" id="otp5">
+      <input type="text" inputmode="numeric" maxlength="1" id="otp6">
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="resend-row">
+      Didn't get it? <a href="#" id="resendLink" class="disabled">Resend <span id="timerText" class="timer">(30s)</span></a>
+    </div>
+
+    <button class="btn" id="verifyBtn" disabled>Verify &amp; Continue →</button>
+  </div>
+
+  <div class="home-indicator"><div class="bar"></div></div>
+</div>
+
+<script>
+  const inputs = Array.from(document.querySelectorAll('.otp-row input'));
+  const verifyBtn = document.getElementById('verifyBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const resendLink = document.getElementById('resendLink');
+  const timerText = document.getElementById('timerText');
+
+  const CORRECT_OTP = "552146"; // demo code, matches screenshot's 5 5 start
+
+  function checkComplete(){
+    const filled = inputs.every(i => i.value.length === 1);
+    verifyBtn.disabled = !filled;
+  }
+
+  inputs.forEach((input, idx) => {
+    input.addEventListener('input', (e) => {
+      const val = e.target.value.replace(/[^0-9]/g, '');
+      e.target.value = val;
+      if(val){
+        e.target.classList.add('filled');
+        if(idx < inputs.length - 1){
+          inputs[idx+1].focus();
+        }
+      } else {
+        e.target.classList.remove('filled');
+      }
+      errorMsg.textContent = '';
+      checkComplete();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if(e.key === 'Backspace' && !input.value && idx > 0){
+        inputs[idx-1].focus();
+      }
+    });
+
+    input.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g,'');
+      paste.split('').forEach((ch, i) => {
+        if(inputs[i]){
+          inputs[i].value = ch;
+          inputs[i].classList.add('filled');
+        }
+      });
+      const nextEmpty = inputs.findIndex(i => !i.value);
+      (nextEmpty === -1 ? inputs[inputs.length-1] : inputs[nextEmpty]).focus();
+      checkComplete();
+    });
+  });
+
+  verifyBtn.addEventListener('click', () => {
+    const entered = inputs.map(i => i.value).join('');
+    if(entered === CORRECT_OTP){
+      errorMsg.style.color = '#2E7D32';
+      errorMsg.textContent = 'Verified! Redirecting...';
+      verifyBtn.textContent = 'Verified ✓';
+    } else {
+      errorMsg.style.color = '#8C2F1F';
+      errorMsg.textContent = 'Incorrect code. Please try again.';
+      inputs.forEach(i => { i.value=''; i.classList.remove('filled'); });
+      inputs[0].focus();
+      checkComplete();
+    }
+  });
+
+  // Resend timer
+  let seconds = 30;
+  const countdown = setInterval(() => {
+    seconds--;
+    if(seconds <= 0){
+      clearInterval(countdown);
+      resendLink.classList.remove('disabled');
+      timerText.textContent = '';
+    } else {
+      timerText.textContent = `(${seconds}s)`;
+    }
+  }, 1000);
+
+  resendLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    if(resendLink.classList.contains('disabled')) return;
+    resendLink.classList.add('disabled');
+    seconds = 30;
+    timerText.textContent = `(${seconds}s)`;
+    const c2 = setInterval(() => {
+      seconds--;
+      if(seconds <= 0){
+        clearInterval(c2);
+        resendLink.classList.remove('disabled');
+        timerText.textContent = '';
+      } else {
+        timerText.textContent = `(${seconds}s)`;
+      }
+    }, 1000);
+  });
+
+  inputs[0].focus();
+</script>
+
+</body>
+</html>
