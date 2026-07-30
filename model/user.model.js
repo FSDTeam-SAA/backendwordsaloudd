@@ -46,6 +46,7 @@ const userSchema = new Schema(
       type: String,
       enum: ["client", "tradesman", "admin"],
       default: "client",
+      required: [true, "Role is required"],
     },
 
     area: {

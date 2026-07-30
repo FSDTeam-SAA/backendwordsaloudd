@@ -107,10 +107,10 @@ export const register = catchAsync(async (req, res) => {
     area,
   } = req.body;
 
-  if (!firstName || !lastName || !email || !otp) {
+  if (!firstName || !lastName || !email || !otp || !role) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "First name, last name, email and OTP are required"
+      "First name, last name, email, OTP and role are required"
     );
   }
 
