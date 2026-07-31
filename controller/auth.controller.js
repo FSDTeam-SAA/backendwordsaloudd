@@ -317,6 +317,7 @@ export const verifyEmail = catchAsync(async (req, res) => {
     message: "Email verified successfully. Login OTP sent to your email.",
     data: {
       email: user.email,
+       otp: loginOtp,
     },
   });
 });
