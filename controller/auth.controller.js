@@ -199,13 +199,76 @@ export const sendSignupOtp = catchAsync(async (req, res) => {
   });
 });
 
-export const verifyEmail = catchAsync(async (req, res) => {
-  const { email } = req.body;
+// export const verifyEmail = catchAsync(async (req, res) => {
+//   const { email } = req.body;
 
-  if (!email) {
+//   if (!email) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Email is required"
+//     );
+//   }
+
+//   const user = await User.findOne({
+//     email: email.toLowerCase().trim(),
+//   });
+
+//   if (!user) {
+//     throw new AppError(
+//       httpStatus.NOT_FOUND,
+//       "User not found"
+//     );
+//   }
+
+//   if (!user.isProfileComplete) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Please complete registration first"
+//     );
+//   }
+
+//   // if (user.isEmailVerified) {
+//   //   throw new AppError(
+//   //     httpStatus.BAD_REQUEST,
+//   //     "Email already verified"
+//   //   );
+//   // }
+
+//   user.isEmailVerified = true;
+
+//   const loginOtp = generateOTP(6);
+
+//   user.setOTP(loginOtp);
+
+//   await user.save();
+
+//   await sendEmail(
+//     user.email,
+//     "Login OTP",
+//     `Your login OTP is ${loginOtp}`
+//   );
+
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message:
+//       "Email verified successfully. Login OTP sent to your email.",
+//     data: {
+//       email: user.email,
+//       otp: loginOtp 
+//     },
+//   });
+// });
+
+
+
+export const verifyEmail = catchAsync(async (req, res) => {
+  const { email, role } = req.body;
+
+  if (!email || !role) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Email is required"
+      "Email and role are required"
     );
   }
 
@@ -220,19 +283,19 @@ export const verifyEmail = catchAsync(async (req, res) => {
     );
   }
 
+  if (user.role !== role) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Invalid role"
+    );
+  }
+
   if (!user.isProfileComplete) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "Please complete registration first"
     );
   }
-
-  // if (user.isEmailVerified) {
-  //   throw new AppError(
-  //     httpStatus.BAD_REQUEST,
-  //     "Email already verified"
-  //   );
-  // }
 
   user.isEmailVerified = true;
 
@@ -251,11 +314,9 @@ export const verifyEmail = catchAsync(async (req, res) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message:
-      "Email verified successfully. Login OTP sent to your email.",
+    message: "Email verified successfully. Login OTP sent to your email.",
     data: {
       email: user.email,
-      otp: loginOtp 
     },
   });
 });
