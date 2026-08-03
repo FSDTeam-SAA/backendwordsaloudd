@@ -398,69 +398,69 @@ export const verifyEmail = catchAsync(async (req, res) => {
 //   });
 // });
 
-export const login = catchAsync(async (req, res) => {
-  const { email, password } = req.body;
+// export const login = catchAsync(async (req, res) => {
+//   const { email, password } = req.body;
 
-  if (!email || !password) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Email and password required");
-  }
+//   if (!email || !password) {
+//     throw new AppError(httpStatus.BAD_REQUEST, "Email and password required");
+//   }
 
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-  }).select("+password");
+//   const user = await User.findOne({
+//     email: email.toLowerCase().trim(),
+//   }).select("+password");
 
-  if (!user) {
-    throw new AppError(httpStatus.NOT_FOUND, "User not found");
-  }
+//   if (!user) {
+//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+//   }
 
-  if (!user.isEmailVerified) {
-    throw new AppError(httpStatus.FORBIDDEN, "Email not verified");
-  }
+//   if (!user.isEmailVerified) {
+//     throw new AppError(httpStatus.FORBIDDEN, "Email not verified");
+//   }
 
-  const match = await user.comparePassword(password);
+//   const match = await user.comparePassword(password);
 
-  if (!match) {
-    throw new AppError(httpStatus.FORBIDDEN, "Wrong password");
-  }
+//   if (!match) {
+//     throw new AppError(httpStatus.FORBIDDEN, "Wrong password");
+//   }
 
-  const payload = {
-    _id: user._id,
-    email: user.email,
-    role: user.role,
-  };
+//   const payload = {
+//     _id: user._id,
+//     email: user.email,
+//     role: user.role,
+//   };
 
-  const accessToken = createToken(
-    payload,
-    process.env.JWT_ACCESS_SECRET,
-    "1d"
-  );
+//   const accessToken = createToken(
+//     payload,
+//     process.env.JWT_ACCESS_SECRET,
+//     "1d"
+//   );
 
-  const refreshToken = createToken(
-    payload,
-    process.env.JWT_REFRESH_SECRET,
-    "7d"
-  );
+//   const refreshToken = createToken(
+//     payload,
+//     process.env.JWT_REFRESH_SECRET,
+//     "7d"
+//   );
 
-  user.refreshToken = refreshToken;
-  await user.save();
+//   user.refreshToken = refreshToken;
+//   await user.save();
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Login successful",
-    data: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-      area: user.area,
-      isEmailVerified: user.isEmailVerified,
-      accessToken,
-      refreshToken,
-    },
-  });
-});
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "Login successful",
+//     data: {
+//       _id: user._id,
+//       name: user.name,
+//       email: user.email,
+//       phoneNumber: user.phoneNumber,
+//       role: user.role,
+//       area: user.area,
+//       isEmailVerified: user.isEmailVerified,
+//       accessToken,
+//       refreshToken,
+//     },
+//   });
+// });
 
 
 // export const login = catchAsync(async (req, res) => {
@@ -549,98 +549,90 @@ export const login = catchAsync(async (req, res) => {
 // });
 
 
-// export const login = catchAsync(async (req, res) => {
-//   const { email, otp, role } = req.body;
+export const login = catchAsync(async (req, res) => {
+  const { email, otp } = req.body;
 
-//   if (!email || !otp || !role) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Email, OTP and role are required"
-//     );
-//   }
+  if (!email || !otp) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Email and OTP are required"
+    );
+  }
 
-//   const user = await User.findOne({
-//     email: email.toLowerCase().trim(),
-//   }).select("+otp.code +otp.expiresAt");
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+  }).select("+otp.code +otp.expiresAt");
 
-//   if (!user) {
-//     throw new AppError(
-//       httpStatus.NOT_FOUND,
-//       "User not found"
-//     );
-//   }
+  if (!user) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "User not found"
+    );
+  }
 
-//   // Validate role
-//   if (user.role !== role) {
-//     throw new AppError(
-//       httpStatus.FORBIDDEN,
-//       "Invalid role"
-//     );
-//   }
+  if (!user.isEmailVerified) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Email not verified"
+    );
+  }
 
-//   if (!user.isEmailVerified) {
-//     throw new AppError(
-//       httpStatus.FORBIDDEN,
-//       "Email not verified"
-//     );
-//   }
+  if (!user.isProfileComplete) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Please complete registration first"
+    );
+  }
 
-//   if (!user.isProfileComplete) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Please complete registration first"
-//     );
-//   }
+  if (!user.isOTPValid(otp)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Invalid or expired OTP"
+    );
+  }
 
-//   if (!user.isOTPValid(otp)) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Invalid or expired OTP"
-//     );
-//   }
+  // OTP একবার ব্যবহার হলে remove করে দাও
+  user.clearOTP();
 
-//   // OTP একবার ব্যবহার হলে remove করে দাও
-//   user.clearOTP();
+  const payload = {
+    _id: user._id,
+    email: user.email,
+    role: user.role, // JWT-তে role থাকবে
+  };
 
-//   const payload = {
-//     _id: user._id,
-//     email: user.email,
-//     role: user.role,
-//   };
+  const accessToken = createToken(
+    payload,
+    process.env.JWT_ACCESS_SECRET,
+    "1d"
+  );
 
-//   const accessToken = createToken(
-//     payload,
-//     process.env.JWT_ACCESS_SECRET,
-//     "1d"
-//   );
+  const refreshToken = createToken(
+    payload,
+    process.env.JWT_REFRESH_SECRET,
+    "7d"
+  );
 
-//   const refreshToken = createToken(
-//     payload,
-//     process.env.JWT_REFRESH_SECRET,
-//     "7d"
-//   );
+  user.refreshToken = refreshToken;
 
-//   user.refreshToken = refreshToken;
+  await user.save();
 
-//   await user.save();
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "Login successful",
-//     data: {
-//       _id: user._id,
-//       name: user.name,
-//       email: user.email,
-//       phoneNumber: user.phoneNumber,
-//       role: user.role,
-//       area: user.area,
-//       isEmailVerified: user.isEmailVerified,
-//       accessToken,
-//       refreshToken,
-//     },
-//   });
-// });
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Login successful",
+    data: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      area: user.area,
+      isEmailVerified: user.isEmailVerified,
+      accessToken,
+      refreshToken,
+    },
+  });
+});
 
 export const forgetPassword = catchAsync(async (req, res) => {
   const { email } = req.body;
