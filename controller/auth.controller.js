@@ -96,6 +96,75 @@ import { sendEmail } from "../utils/sendEmail.js";
 
 
 
+// export const register = catchAsync(async (req, res) => {
+//   const {
+//     firstName,
+//     lastName,
+//     email,
+//     otp,
+//     phoneNumber,
+//     role,
+//     area,
+//   } = req.body;
+
+//   if (!firstName || !lastName || !email || !otp || !role) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "First name, last name, email, OTP and role are required"
+//     );
+//   }
+
+//   const user = await User.findOne({
+//     email: email.toLowerCase().trim(),
+//   }).select("+otp.code +otp.expiresAt");
+
+//   if (!user) {
+//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+//   }
+
+//   if (!user.isOTPValid(otp)) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Invalid or expired OTP"
+//     );
+//   }
+
+//   if (user.isProfileComplete) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Account already exists"
+//     );
+//   }
+
+//   user.firstName = firstName.trim();
+//   user.lastName = lastName.trim();
+//   user.phoneNumber = phoneNumber?.trim() || "";
+//   user.area = area?.trim() || "";
+//   user.role = ["client", "tradesman"].includes(role)
+//     ? role
+//     : "client";
+
+//   user.isEmailVerified = false;
+//   user.isProfileComplete = true;
+
+//   // user.clearOTP();
+
+//   await user.save();
+
+//   sendResponse(res, {
+//     statusCode: httpStatus.CREATED,
+//     success: true,
+//     message: "Registration completed successfully",
+//     data: {
+//       _id: user._id,
+//       name: user.name,
+//       email: user.email,
+//       role: user.role,
+//       area: user.area,
+//     },
+//   });
+// });
+
 export const register = catchAsync(async (req, res) => {
   const {
     firstName,
@@ -107,10 +176,17 @@ export const register = catchAsync(async (req, res) => {
     area,
   } = req.body;
 
-  if (!firstName || !lastName || !email || !otp || !role) {
+  if (
+    !firstName ||
+    !lastName ||
+    !email ||
+    !otp ||
+    !phoneNumber ||
+    !role
+  ) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "First name, last name, email, OTP and role are required"
+      "First name, last name, email, phone number, OTP and role are required"
     );
   }
 
@@ -138,7 +214,7 @@ export const register = catchAsync(async (req, res) => {
 
   user.firstName = firstName.trim();
   user.lastName = lastName.trim();
-  user.phoneNumber = phoneNumber?.trim() || "";
+  user.phoneNumber = phoneNumber.trim();
   user.area = area?.trim() || "";
   user.role = ["client", "tradesman"].includes(role)
     ? role
@@ -159,12 +235,12 @@ export const register = catchAsync(async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      phoneNumber: user.phoneNumber,
       role: user.role,
       area: user.area,
     },
   });
 });
-
 
 export const sendSignupOtp = catchAsync(async (req, res) => {
   const { email } = req.body;
@@ -199,76 +275,13 @@ export const sendSignupOtp = catchAsync(async (req, res) => {
   });
 });
 
-// export const verifyEmail = catchAsync(async (req, res) => {
-//   const { email } = req.body;
-
-//   if (!email) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Email is required"
-//     );
-//   }
-
-//   const user = await User.findOne({
-//     email: email.toLowerCase().trim(),
-//   });
-
-//   if (!user) {
-//     throw new AppError(
-//       httpStatus.NOT_FOUND,
-//       "User not found"
-//     );
-//   }
-
-//   if (!user.isProfileComplete) {
-//     throw new AppError(
-//       httpStatus.BAD_REQUEST,
-//       "Please complete registration first"
-//     );
-//   }
-
-//   // if (user.isEmailVerified) {
-//   //   throw new AppError(
-//   //     httpStatus.BAD_REQUEST,
-//   //     "Email already verified"
-//   //   );
-//   // }
-
-//   user.isEmailVerified = true;
-
-//   const loginOtp = generateOTP(6);
-
-//   user.setOTP(loginOtp);
-
-//   await user.save();
-
-//   await sendEmail(
-//     user.email,
-//     "Login OTP",
-//     `Your login OTP is ${loginOtp}`
-//   );
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message:
-//       "Email verified successfully. Login OTP sent to your email.",
-//     data: {
-//       email: user.email,
-//       otp: loginOtp 
-//     },
-//   });
-// });
-
-
-
 export const verifyEmail = catchAsync(async (req, res) => {
-  const { email, role } = req.body;
+  const { email } = req.body;
 
-  if (!email || !role) {
+  if (!email) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Email and role are required"
+      "Email is required"
     );
   }
 
@@ -283,19 +296,19 @@ export const verifyEmail = catchAsync(async (req, res) => {
     );
   }
 
-  if (user.role !== role) {
-    throw new AppError(
-      httpStatus.FORBIDDEN,
-      "Invalid role"
-    );
-  }
-
   if (!user.isProfileComplete) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "Please complete registration first"
     );
   }
+
+  // if (user.isEmailVerified) {
+  //   throw new AppError(
+  //     httpStatus.BAD_REQUEST,
+  //     "Email already verified"
+  //   );
+  // }
 
   user.isEmailVerified = true;
 
@@ -314,77 +327,140 @@ export const verifyEmail = catchAsync(async (req, res) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "Email verified successfully. Login OTP sent to your email.",
+    message:
+      "Email verified successfully. Login OTP sent to your email.",
     data: {
       email: user.email,
-       otp: loginOtp,
+      otp: loginOtp 
     },
   });
 });
 
-// export const login = catchAsync(async (req, res) => {
-//   const { email, password } = req.body;
 
-//   if (!email || !password) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email and password required");
+
+// export const verifyEmail = catchAsync(async (req, res) => {
+//   const { email, role } = req.body;
+
+//   if (!email || !role) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Email and role are required"
+//     );
 //   }
 
 //   const user = await User.findOne({
 //     email: email.toLowerCase().trim(),
-//   }).select("+password");
+//   });
 
 //   if (!user) {
-//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+//     throw new AppError(
+//       httpStatus.NOT_FOUND,
+//       "User not found"
+//     );
 //   }
 
-//   if (!user.isEmailVerified) {
-//     throw new AppError(httpStatus.FORBIDDEN, "Email not verified");
+//   if (user.role !== role) {
+//     throw new AppError(
+//       httpStatus.FORBIDDEN,
+//       "Invalid role"
+//     );
 //   }
 
-//   const match = await user.comparePassword(password);
-
-//   if (!match) {
-//     throw new AppError(httpStatus.FORBIDDEN, "Wrong password");
+//   if (!user.isProfileComplete) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Please complete registration first"
+//     );
 //   }
 
-//   const payload = {
-//     _id: user._id,
-//     email: user.email,
-//     role: user.role,
-//   };
+//   user.isEmailVerified = true;
 
-//   const accessToken = createToken(
-//     payload,
-//     process.env.JWT_ACCESS_SECRET,
-//     "1d"
-//   );
+//   const loginOtp = generateOTP(6);
 
-//   const refreshToken = createToken(
-//     payload,
-//     process.env.JWT_REFRESH_SECRET,
-//     "7d"
-//   );
+//   user.setOTP(loginOtp);
 
-//   user.refreshToken = refreshToken;
 //   await user.save();
+
+//   await sendEmail(
+//     user.email,
+//     "Login OTP",
+//     `Your login OTP is ${loginOtp}`
+//   );
 
 //   sendResponse(res, {
 //     statusCode: httpStatus.OK,
 //     success: true,
-//     message: "Login successful",
+//     message: "Email verified successfully. Login OTP sent to your email.",
 //     data: {
-//       _id: user._id,
-//       name: user.name,
 //       email: user.email,
-//       phoneNumber: user.phoneNumber,
-//       role: user.role,
-//       area: user.area,
-//       isEmailVerified: user.isEmailVerified,
-//       accessToken,
-//       refreshToken,
+//        otp: loginOtp,
 //     },
 //   });
 // });
+
+export const login = catchAsync(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email and password required");
+  }
+
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+  }).select("+password");
+
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (!user.isEmailVerified) {
+    throw new AppError(httpStatus.FORBIDDEN, "Email not verified");
+  }
+
+  const match = await user.comparePassword(password);
+
+  if (!match) {
+    throw new AppError(httpStatus.FORBIDDEN, "Wrong password");
+  }
+
+  const payload = {
+    _id: user._id,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = createToken(
+    payload,
+    process.env.JWT_ACCESS_SECRET,
+    "1d"
+  );
+
+  const refreshToken = createToken(
+    payload,
+    process.env.JWT_REFRESH_SECRET,
+    "7d"
+  );
+
+  user.refreshToken = refreshToken;
+  await user.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Login successful",
+    data: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      area: user.area,
+      isEmailVerified: user.isEmailVerified,
+      accessToken,
+      refreshToken,
+    },
+  });
+});
 
 
 // export const login = catchAsync(async (req, res) => {
@@ -473,98 +549,98 @@ export const verifyEmail = catchAsync(async (req, res) => {
 // });
 
 
-export const login = catchAsync(async (req, res) => {
-  const { email, otp, role } = req.body;
+// export const login = catchAsync(async (req, res) => {
+//   const { email, otp, role } = req.body;
 
-  if (!email || !otp || !role) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Email, OTP and role are required"
-    );
-  }
+//   if (!email || !otp || !role) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Email, OTP and role are required"
+//     );
+//   }
 
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-  }).select("+otp.code +otp.expiresAt");
+//   const user = await User.findOne({
+//     email: email.toLowerCase().trim(),
+//   }).select("+otp.code +otp.expiresAt");
 
-  if (!user) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "User not found"
-    );
-  }
+//   if (!user) {
+//     throw new AppError(
+//       httpStatus.NOT_FOUND,
+//       "User not found"
+//     );
+//   }
 
-  // Validate role
-  if (user.role !== role) {
-    throw new AppError(
-      httpStatus.FORBIDDEN,
-      "Invalid role"
-    );
-  }
+//   // Validate role
+//   if (user.role !== role) {
+//     throw new AppError(
+//       httpStatus.FORBIDDEN,
+//       "Invalid role"
+//     );
+//   }
 
-  if (!user.isEmailVerified) {
-    throw new AppError(
-      httpStatus.FORBIDDEN,
-      "Email not verified"
-    );
-  }
+//   if (!user.isEmailVerified) {
+//     throw new AppError(
+//       httpStatus.FORBIDDEN,
+//       "Email not verified"
+//     );
+//   }
 
-  if (!user.isProfileComplete) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Please complete registration first"
-    );
-  }
+//   if (!user.isProfileComplete) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Please complete registration first"
+//     );
+//   }
 
-  if (!user.isOTPValid(otp)) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Invalid or expired OTP"
-    );
-  }
+//   if (!user.isOTPValid(otp)) {
+//     throw new AppError(
+//       httpStatus.BAD_REQUEST,
+//       "Invalid or expired OTP"
+//     );
+//   }
 
-  // OTP একবার ব্যবহার হলে remove করে দাও
-  user.clearOTP();
+//   // OTP একবার ব্যবহার হলে remove করে দাও
+//   user.clearOTP();
 
-  const payload = {
-    _id: user._id,
-    email: user.email,
-    role: user.role,
-  };
+//   const payload = {
+//     _id: user._id,
+//     email: user.email,
+//     role: user.role,
+//   };
 
-  const accessToken = createToken(
-    payload,
-    process.env.JWT_ACCESS_SECRET,
-    "1d"
-  );
+//   const accessToken = createToken(
+//     payload,
+//     process.env.JWT_ACCESS_SECRET,
+//     "1d"
+//   );
 
-  const refreshToken = createToken(
-    payload,
-    process.env.JWT_REFRESH_SECRET,
-    "7d"
-  );
+//   const refreshToken = createToken(
+//     payload,
+//     process.env.JWT_REFRESH_SECRET,
+//     "7d"
+//   );
 
-  user.refreshToken = refreshToken;
+//   user.refreshToken = refreshToken;
 
-  await user.save();
+//   await user.save();
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Login successful",
-    data: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-      area: user.area,
-      isEmailVerified: user.isEmailVerified,
-      accessToken,
-      refreshToken,
-    },
-  });
-});
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "Login successful",
+//     data: {
+//       _id: user._id,
+//       name: user.name,
+//       email: user.email,
+//       phoneNumber: user.phoneNumber,
+//       role: user.role,
+//       area: user.area,
+//       isEmailVerified: user.isEmailVerified,
+//       accessToken,
+//       refreshToken,
+//     },
+//   });
+// });
 
 export const forgetPassword = catchAsync(async (req, res) => {
   const { email } = req.body;
