@@ -195,6 +195,7 @@ export const addVipMember = catchAsync(async (req, res) => {
     profile = new TradesmanProfile({ user: user._id, mainSkill });
   }
 
+  if (mainSkill) profile.mainSkill = mainSkill;
   if (homeArea) profile.homeArea = homeArea;
   if (travelRange) profile.travelRange = travelRange;
   if (pitch !== undefined) profile.pitch = pitch;
