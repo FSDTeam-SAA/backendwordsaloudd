@@ -1,5 +1,5 @@
 import httpStatus from "http-status";
-import User from "../model/user.model.js";
+import User, { ADMIN_PERMISSIONS } from "../model/user.model.js";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
 import Advertisement from "../model/advertisement.model.js";
 import AppError from "../errors/AppError.js";
@@ -16,7 +16,7 @@ const MONTHS = [
 export const getDashboardOverview = catchAsync(async (req, res) => {
   const [totalUser, totalClient, totalTradesman, totalAdvertisement] =
     await Promise.all([
-      User.countDocuments({}),
+      User.countDocuments({ role: { $in: ["client", "tradesman"] } }),
       User.countDocuments({ role: "client" }),
       User.countDocuments({ role: "tradesman" }),
       Advertisement.countDocuments({}),
@@ -71,7 +71,7 @@ export const getDashboardOverview = catchAsync(async (req, res) => {
 export const getUserList = catchAsync(async (req, res) => {
   const { type = "all", page = 1, limit = 20 } = req.query;
 
-  let userFilter = {};
+  let userFilter = { role: { $in: ["client", "tradesman"] } };
   if (type === "client") userFilter.role = "client";
   if (type === "tradesman") userFilter.role = "tradesman";
 
@@ -119,6 +119,9 @@ export const getUserList = catchAsync(async (req, res) => {
 export const toggleUserBlock = catchAsync(async (req, res) => {
   const user = await User.findById(req.params.userId);
   if (!user) throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  if (["admin", "super-admin"].includes(user.role)) {
+    throw new AppError(httpStatus.FORBIDDEN, "Manage administrators from the Admin Management section");
+  }
 
   user.isBlocked = !user.isBlocked;
   await user.save();
@@ -134,6 +137,9 @@ export const toggleUserBlock = catchAsync(async (req, res) => {
 export const deleteUser = catchAsync(async (req, res) => {
   const user = await User.findById(req.params.userId);
   if (!user) throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  if (["admin", "super-admin"].includes(user.role)) {
+    throw new AppError(httpStatus.FORBIDDEN, "Administrator accounts cannot be deleted from the user list");
+  }
 
   await TradesmanProfile.findOneAndDelete({ user: user._id });
   await user.deleteOne();
@@ -299,6 +305,112 @@ export const updateVerificationStatus = catchAsync(async (req, res) => {
     success: true,
     message: `Tradesman ${status}`,
     data: profile,
+  });
+});
+
+const normalizePermissions = (permissions) => {
+  if (!Array.isArray(permissions)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "permissions must be an array");
+  }
+
+  const uniquePermissions = [...new Set(permissions)];
+  if (uniquePermissions.some((permission) => !ADMIN_PERMISSIONS.includes(permission))) {
+    throw new AppError(httpStatus.BAD_REQUEST, "One or more permissions are invalid");
+  }
+  return uniquePermissions;
+};
+
+export const getAdminList = catchAsync(async (req, res) => {
+  const admins = await User.find({ role: { $in: ["admin", "super-admin"] } })
+    .select("firstName lastName email phoneNumber role adminPermissions isBlocked createdAt updatedAt")
+    .sort({ role: -1, createdAt: 1 });
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Administrator list fetched",
+    data: admins,
+  });
+});
+
+export const createAdmin = catchAsync(async (req, res) => {
+  const { firstName, lastName, email, phoneNumber = "", password, role = "admin" } = req.body;
+
+  if (!firstName?.trim() || !lastName?.trim() || !email?.trim() || !password) {
+    throw new AppError(httpStatus.BAD_REQUEST, "First name, last name, email and password are required");
+  }
+  if (password.length < 8) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Password must be at least 8 characters");
+  }
+  if (!["admin", "super-admin"].includes(role)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid administrator role");
+  }
+
+  const permissions = role === "super-admin"
+    ? ADMIN_PERMISSIONS
+    : normalizePermissions(req.body.permissions ?? []);
+
+  const admin = await User.create({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    email: email.toLowerCase().trim(),
+    phoneNumber: phoneNumber.trim(),
+    password,
+    role,
+    adminPermissions: permissions,
+    isEmailVerified: true,
+    isProfileComplete: true,
+  });
+
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: "Administrator account created",
+    data: admin,
+  });
+});
+
+export const updateAdmin = catchAsync(async (req, res) => {
+  const admin = await User.findOne({
+    _id: req.params.adminId,
+    role: { $in: ["admin", "super-admin"] },
+  });
+  if (!admin) throw new AppError(httpStatus.NOT_FOUND, "Administrator not found");
+
+  const nextRole = req.body.role ?? admin.role;
+  if (!["admin", "super-admin"].includes(nextRole)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid administrator role");
+  }
+
+  const revokesSuperAdmin = admin.role === "super-admin" && !admin.isBlocked && (
+    nextRole !== "super-admin" || req.body.isBlocked === true
+  );
+  if (revokesSuperAdmin) {
+    const activeSuperAdmins = await User.countDocuments({ role: "super-admin", isBlocked: false });
+    if (activeSuperAdmins <= 1) {
+      throw new AppError(httpStatus.BAD_REQUEST, "At least one active super-admin is required");
+    }
+  }
+
+  if (admin._id.equals(req.user._id) && req.body.isBlocked === true) {
+    throw new AppError(httpStatus.BAD_REQUEST, "You cannot revoke your own access");
+  }
+  if (admin._id.equals(req.user._id) && nextRole !== "super-admin") {
+    throw new AppError(httpStatus.BAD_REQUEST, "You cannot remove your own super-admin role");
+  }
+
+  admin.role = nextRole;
+  admin.adminPermissions = nextRole === "super-admin"
+    ? ADMIN_PERMISSIONS
+    : normalizePermissions(req.body.permissions ?? admin.adminPermissions);
+  if (typeof req.body.isBlocked === "boolean") admin.isBlocked = req.body.isBlocked;
+  await admin.save();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: admin.isBlocked ? "Administrator access revoked" : "Administrator updated",
+    data: admin,
   });
 });
 

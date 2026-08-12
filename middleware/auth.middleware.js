@@ -40,12 +40,35 @@ export const requireVerified = catchAsync(async (req, res, next) => {
 
 export const restrictTo = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user?.role)) {
+    const userRole = req.user?.role;
+    const hasAccess =
+      roles.includes(userRole) ||
+      (userRole === "super-admin" && roles.includes("admin"));
+
+    if (!hasAccess) {
       throw new AppError(
         httpStatus.FORBIDDEN,
         "You do not have permission to perform this action"
       );
     }
+    next();
+  };
+};
+
+export const requireAdminPermission = (permission) => {
+  return (req, res, next) => {
+    if (req.user?.role === "super-admin") return next();
+
+    if (
+      req.user?.role !== "admin"  ||
+      !req.user.adminPermissions?.includes(permission)
+    ) {
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        "You do not have permission to access this admin section"
+      );
+    }
+
     next();
   };
 };

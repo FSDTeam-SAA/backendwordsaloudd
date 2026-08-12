@@ -577,7 +577,7 @@ export const login = catchAsync(async (req, res) => {
     );
   }
 
-  if (!user.isProfileComplete && user.role !== "admin") {
+  if (!user.isProfileComplete && !["admin", "super-admin"].includes(user.role)) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "Please complete registration first"
@@ -585,7 +585,7 @@ export const login = catchAsync(async (req, res) => {
   }
 
   if (password) {
-    if (user.role !== "admin" || !user.password) {
+    if (!["admin", "super-admin"].includes(user.role) || !user.password) {
       throw new AppError(httpStatus.FORBIDDEN, "Password login is only available to administrators");
     }
     const passwordMatches = await user.comparePassword(password);
@@ -631,6 +631,9 @@ export const login = catchAsync(async (req, res) => {
       email: user.email,
       phoneNumber: user.phoneNumber,
       role: user.role,
+      adminPermissions: user.role === "super-admin"
+        ? ["dashboard", "users", "advertisements"]
+        : user.adminPermissions,
       area: user.area,
       isEmailVerified: user.isEmailVerified,
       accessToken,

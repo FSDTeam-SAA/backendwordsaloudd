@@ -78,6 +78,13 @@ export const changePassword = catchAsync(async (req, res) => {
 export const deleteMe = catchAsync(async (req, res) => {
   const user = req.user;
 
+  if (["admin", "super-admin"].includes(user.role)) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Administrator accounts must be managed from Admin Management"
+    );
+  }
+
   await TradesmanProfile.findOneAndDelete({ user: user._id });
   await User.findByIdAndDelete(user._id);
 

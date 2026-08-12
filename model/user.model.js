@@ -1,6 +1,8 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
+export const ADMIN_PERMISSIONS = ["dashboard", "users", "advertisements"];
+
 const userSchema = new Schema(
   {
     firstName: {
@@ -44,9 +46,14 @@ const userSchema = new Schema(
 
     role: {
       type: String,
-      enum: ["client", "tradesman", "admin"],
+      enum: ["client", "tradesman", "admin", "super-admin"],
       default: "client",
       required: [true, "Role is required"],
+    },
+
+    adminPermissions: {
+      type: [{ type: String, enum: ADMIN_PERMISSIONS }],
+      default: [],
     },
 
     area: {
