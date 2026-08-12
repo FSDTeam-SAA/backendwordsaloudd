@@ -5,8 +5,8 @@ import User from "../model/user.model.js";
 const run = async () => {
   await mongoose.connect(process.env.MONGO_DB_URL);
 
-  const email = process.env.ADMIN_EMAIL || "admin@aturservicett.com";
-  const password = process.env.ADMIN_PASSWORD || "Admin@123";
+  const email = process.env.ADMIN_EMAIL || "admin@gmail.com";
+  const password = process.env.ADMIN_PASSWORD || "123456";
 
   let admin = await User.findOne({ email });
 
@@ -21,6 +21,7 @@ const run = async () => {
       password,
       role: "admin",
       isEmailVerified: true,
+      isProfileComplete: true,
     });
     console.log(`Admin created -> email: ${email} / password: ${password}`);
   }

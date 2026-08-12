@@ -550,18 +550,18 @@ export const verifyEmail = catchAsync(async (req, res) => {
 
 
 export const login = catchAsync(async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp, password } = req.body;
 
-  if (!email || !otp) {
+  if (!email || (!otp && !password)) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Email and OTP are required"
+      "Email and password or OTP are required"
     );
   }
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  }).select("+otp.code +otp.expiresAt");
+  }).select("+password +otp.code +otp.expiresAt");
 
   if (!user) {
     throw new AppError(
@@ -577,18 +577,23 @@ export const login = catchAsync(async (req, res) => {
     );
   }
 
-  if (!user.isProfileComplete) {
+  if (!user.isProfileComplete && user.role !== "admin") {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "Please complete registration first"
     );
   }
 
-  if (!user.isOTPValid(otp)) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Invalid or expired OTP"
-    );
+  if (password) {
+    if (user.role !== "admin" || !user.password) {
+      throw new AppError(httpStatus.FORBIDDEN, "Password login is only available to administrators");
+    }
+    const passwordMatches = await user.comparePassword(password);
+    if (!passwordMatches) {
+      throw new AppError(httpStatus.FORBIDDEN, "Invalid email or password");
+    }
+  } else if (!user.isOTPValid(otp)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
   }
 
   // OTP একবার ব্যবহার হলে remove করে দাও
