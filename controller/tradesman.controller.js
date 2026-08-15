@@ -6,7 +6,9 @@ import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
 import { uploadOnCloudinary } from "../utils/commonMethod.js";
-import { SKILLS, TRAVEL_RANGES, normalizeTravelRange, normalizeRateUnit } from "../constants/skills.js";
+import { TRAVEL_RANGES, normalizeTravelRange, normalizeRateUnit } from "../constants/skills.js";
+import Category from "../model/category.model.js";
+import { ensureDefaultCategories, getActiveCategoryNames } from "../utils/adminHelpers.js";
 
 const getOrCreateProfile = async (userId) => {
   let profile = await TradesmanProfile.findOne({ user: userId });
@@ -18,14 +20,15 @@ const getOrCreateProfile = async (userId) => {
 
 export const setSkills = catchAsync(async (req, res) => {
   const { mainSkill, extraSkills } = req.body;
+  const activeSkills = await getActiveCategoryNames();
 
-  if (!mainSkill || !SKILLS.includes(mainSkill)) {
+  if (!mainSkill || !activeSkills.includes(mainSkill)) {
     throw new AppError(httpStatus.BAD_REQUEST, "A valid main skill is required");
   }
 
   const extras = Array.isArray(extraSkills) ? extraSkills.slice(0, 2) : [];
   extras.forEach((s) => {
-    if (!SKILLS.includes(s)) {
+    if (!activeSkills.includes(s)) {
       throw new AppError(httpStatus.BAD_REQUEST, `Invalid skill: ${s}`);
     }
   });
@@ -131,6 +134,7 @@ export const goLive = catchAsync(async (req, res) => {
   if (profile.verificationStatus === "rejected") {
     profile.verificationStatus = "pending";
   }
+  if (profile.verificationStatus === "pending") profile.verification.submittedAt = new Date();
   await profile.save();
 
   sendResponse(res, {
@@ -156,8 +160,9 @@ export const getMyProfile = catchAsync(async (req, res) => {
 });
 
 export const getCategories = catchAsync(async (req, res) => {
+  await ensureDefaultCategories();
   const counts = await TradesmanProfile.aggregate([
-    { $match: { isLive: true } },
+    { $match: { isLive: true, verificationStatus: "verified" } },
     { $group: { _id: "$mainSkill", count: { $sum: 1 } } },
   ]);
 
@@ -166,9 +171,11 @@ export const getCategories = catchAsync(async (req, res) => {
     return acc;
   }, {});
 
-  const categories = SKILLS.map((skill) => ({
-    skill,
-    listedCount: countMap[skill] || 0,
+  const categoryRecords = await Category.find({ isActive: true }).sort({ order: 1, name: 1 });
+  const categories = categoryRecords.map((category) => ({
+    skill: category.name,
+    listedCount: countMap[category.name] || 0,
+    icon: category.icon,
   }));
 
   sendResponse(res, {
@@ -189,7 +196,7 @@ export const browseTradesmen = catchAsync(async (req, res) => {
     limit = 20,
   } = req.query;
 
-  const filter = { isLive: true };
+  const filter = { isLive: true, verificationStatus: "verified" };
   if (skill) filter.mainSkill = skill;
   if (area) filter.homeArea = new RegExp(area, "i");
 
@@ -275,6 +282,9 @@ export const getTradesmanById = catchAsync(async (req, res) => {
   );
 
   if (!profile) {
+    throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
+  }
+  if (!profile.isLive || profile.verificationStatus !== "verified") {
     throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
   }
 
@@ -369,7 +379,7 @@ export const getMyDashboard = catchAsync(async (req, res) => {
   const tradesListed = 1 + (profile.extraSkills?.length || 0);
 
   const breakdownAgg = await Review.aggregate([
-    { $match: { tradesman: profile._id } },
+    { $match: { tradesman: profile._id, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] } },
     { $group: { _id: "$rating", count: { $sum: 1 } } },
   ]);
   const breakdownMap = breakdownAgg.reduce((acc, r) => {
@@ -381,7 +391,7 @@ export const getMyDashboard = catchAsync(async (req, res) => {
     count: breakdownMap[star] || 0,
   }));
 
-  const recentReviews = await Review.find({ tradesman: profile._id })
+  const recentReviews = await Review.find({ tradesman: profile._id, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] })
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 })
     .limit(10);
@@ -450,9 +460,10 @@ export const updateMyProfile = catchAsync(async (req, res) => {
   const { pitch, rateAmount, rateUnit, mainSkill, extraSkills, homeArea, travelRange } = req.body;
 
   const profile = await getOrCreateProfile(req.user._id);
+  const activeSkills = await getActiveCategoryNames();
 
   if (mainSkill !== undefined) {
-    if (!SKILLS.includes(mainSkill)) {
+    if (!activeSkills.includes(mainSkill)) {
       throw new AppError(httpStatus.BAD_REQUEST, "A valid main skill is required");
     }
     profile.mainSkill = mainSkill;
@@ -461,7 +472,7 @@ export const updateMyProfile = catchAsync(async (req, res) => {
     const parsedExtras = typeof extraSkills === "string" ? JSON.parse(extraSkills) : extraSkills;
     const extras = Array.isArray(parsedExtras) ? parsedExtras.slice(0, 2) : [];
     extras.forEach((s) => {
-      if (!SKILLS.includes(s)) {
+      if (!activeSkills.includes(s)) {
         throw new AppError(httpStatus.BAD_REQUEST, `Invalid skill: ${s}`);
       }
     });

@@ -5,10 +5,11 @@ import TradesmanProfile from "../model/tradesmanProfile.model.js";
 import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
+import { getPlatformSettings } from "../utils/adminHelpers.js";
 
 const recalcRating = async (tradesmanId) => {
   const stats = await Review.aggregate([
-     { $match: { tradesman: new mongoose.Types.ObjectId(tradesmanId) } },
+     { $match: { tradesman: new mongoose.Types.ObjectId(tradesmanId), $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] } },
     {
       $group: {
         _id: "$tradesman",
@@ -39,10 +40,12 @@ export const postReview = catchAsync(async (req, res) => {
   if (!tradesman) {
     throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
   }
+  const settings = await getPlatformSettings();
+  const moderationStatus = settings.reviewModerationMode === "require-review" ? "pending" : "approved";
 
   const review = await Review.findOneAndUpdate(
     { tradesman: tradesmanId, reviewer: req.user._id },
-    { rating, ratingLabel, reviewText },
+    { rating, ratingLabel, reviewText, moderationStatus, moderatedBy: null, moderatedAt: null, moderationNote: "" },
     { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
   );
 
@@ -51,7 +54,7 @@ export const postReview = catchAsync(async (req, res) => {
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
-    message: "Review posted",
+    message: moderationStatus === "pending" ? "Review submitted for moderation" : "Review posted",
     data: review,
   });
 });
@@ -59,7 +62,7 @@ export const postReview = catchAsync(async (req, res) => {
 export const getReviewsForTradesman = catchAsync(async (req, res) => {
   const { tradesmanId } = req.params;
 
-  const reviews = await Review.find({ tradesman: tradesmanId })
+  const reviews = await Review.find({ tradesman: tradesmanId, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] })
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 });
 

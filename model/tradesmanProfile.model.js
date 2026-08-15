@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { SKILLS, TRAVEL_RANGES, RATE_UNITS } from "../constants/skills.js";
+import { TRAVEL_RANGES, RATE_UNITS } from "../constants/skills.js";
 
 const tradesmanProfileSchema = new Schema(
   {
@@ -13,11 +13,11 @@ const tradesmanProfileSchema = new Schema(
 
     mainSkill: {
       type: String,
-      enum: SKILLS,
+      trim: true,
     },
 
     extraSkills: {
-      type: [{ type: String, enum: SKILLS }],
+      type: [{ type: String, trim: true }],
       validate: {
         validator: (arr) => arr.length <= 2,
         message: "You can pick at most 2 extra skills",
@@ -58,6 +58,13 @@ const tradesmanProfileSchema = new Schema(
       type: String,
       enum: ["pending", "verified", "rejected"],
       default: "pending",
+    },
+
+    verification: {
+      reviewedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+      reviewedAt: { type: Date, default: null },
+      rejectionReason: { type: String, trim: true, default: "" },
+      submittedAt: { type: Date, default: Date.now },
     },
 
     isLive: {

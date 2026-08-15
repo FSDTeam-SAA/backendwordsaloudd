@@ -1,9 +1,10 @@
 import { v2 as cloudinary } from "cloudinary";
+import crypto from "crypto";
 
 export const generateOTP = (length = 4) => {
   const min = 10 ** (length - 1);
   const max = 10 ** length - 1;
-  return String(Math.floor(min + Math.random() * (max - min + 1)));
+  return String(crypto.randomInt(min, max + 1));
 };
 
 cloudinary.config({
@@ -28,10 +29,10 @@ export const uploadOnCloudinary = (fileBuffer, options = {}) => {
   });
 };
 
-export const deleteFromCloudinary = async (publicId) => {
+export const deleteFromCloudinary = async (publicId, resourceType = "image") => {
   if (!publicId) return;
   try {
-    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType === "video" ? "video" : "image" });
   } catch (error) {
     console.error("Cloudinary delete error:", error);
   }

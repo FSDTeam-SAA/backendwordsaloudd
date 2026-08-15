@@ -1,11 +1,14 @@
 import httpStatus from "http-status";
-import User from "../model/user.model.js";
+import User, { ADMIN_PERMISSIONS } from "../model/user.model.js";
 import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
 import { createToken, verifyToken } from "../utils/authToken.js";
 import { generateOTP } from "../utils/commonMethod.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { writeAuditLog } from "../utils/adminHelpers.js";
+
+const includeDevelopmentOtp = (otp) => process.env.NODE_ENV === "production" ? {} : { otp };
 
 
 // export const register = catchAsync(async (req, res) => {
@@ -220,10 +223,9 @@ export const register = catchAsync(async (req, res) => {
     ? role
     : "client";
 
-  user.isEmailVerified = false;
+  user.isEmailVerified = true;
   user.isProfileComplete = true;
-
-  // user.clearOTP();
+  user.clearOTP();
 
   await user.save();
 
@@ -271,12 +273,12 @@ export const sendSignupOtp = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: "OTP sent to your email",
-    data: { email: user.email, otp }, 
+    data: { email: user.email, ...includeDevelopmentOtp(otp) },
   });
 });
 
 export const verifyEmail = catchAsync(async (req, res) => {
-  const { email } = req.body;
+  const { email, otp } = req.body;
 
   if (!email) {
     throw new AppError(
@@ -287,7 +289,7 @@ export const verifyEmail = catchAsync(async (req, res) => {
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  });
+  }).select("+otp.code +otp.expiresAt");
 
   if (!user) {
     throw new AppError(
@@ -310,7 +312,10 @@ export const verifyEmail = catchAsync(async (req, res) => {
   //   );
   // }
 
-  user.isEmailVerified = true;
+  if (!user.isEmailVerified) {
+    if (!otp || !user.isOTPValid(otp)) throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
+    user.isEmailVerified = true;
+  }
 
   const loginOtp = generateOTP(6);
 
@@ -331,7 +336,7 @@ export const verifyEmail = catchAsync(async (req, res) => {
       "Email verified successfully. Login OTP sent to your email.",
     data: {
       email: user.email,
-      otp: loginOtp 
+      ...includeDevelopmentOtp(loginOtp),
     },
   });
 });
@@ -561,7 +566,7 @@ export const login = catchAsync(async (req, res) => {
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  }).select("+password +otp.code +otp.expiresAt");
+  }).select("+password +otp.code +otp.expiresAt +tokenVersion");
 
   if (!user) {
     throw new AppError(
@@ -602,19 +607,20 @@ export const login = catchAsync(async (req, res) => {
   const payload = {
     _id: user._id,
     email: user.email,
-    role: user.role, // JWT-তে role থাকবে
+    role: user.role,
+    tokenVersion: user.tokenVersion || 0,
   };
 
   const accessToken = createToken(
     payload,
     process.env.JWT_ACCESS_SECRET,
-    "1d"
+    process.env.JWT_ACCESS_EXPIRES_IN || "1d"
   );
 
   const refreshToken = createToken(
     payload,
     process.env.JWT_REFRESH_SECRET,
-    "7d"
+    process.env.JWT_REFRESH_EXPIRES_IN || "7d"
   );
 
   user.refreshToken = refreshToken;
@@ -632,7 +638,7 @@ export const login = catchAsync(async (req, res) => {
       phoneNumber: user.phoneNumber,
       role: user.role,
       adminPermissions: user.role === "super-admin"
-        ? ["dashboard", "users", "advertisements"]
+        ? ADMIN_PERMISSIONS
         : user.adminPermissions,
       area: user.area,
       isEmailVerified: user.isEmailVerified,
@@ -640,6 +646,9 @@ export const login = catchAsync(async (req, res) => {
       refreshToken,
     },
   });
+  if (["admin", "super-admin"].includes(user.role)) {
+    await writeAuditLog({ ...req, user }, { action: "admin.login", entityType: "session", entityId: user._id, summary: `${user.email} logged in` });
+  }
 });
 
 export const forgetPassword = catchAsync(async (req, res) => {
@@ -669,7 +678,7 @@ export const forgetPassword = catchAsync(async (req, res) => {
     data: {
       email: user.email,
       resetOtpVerified: false,
-      otp,
+      ...includeDevelopmentOtp(otp),
     },
   });
 });
@@ -783,9 +792,10 @@ export const logout = catchAsync(async (req, res) => {
     throw new AppError(httpStatus.UNAUTHORIZED, "Unauthorized");
   }
 
-  await User.findByIdAndUpdate(userId, {
-    refreshToken: "",
-  });
+  await User.findByIdAndUpdate(userId, { refreshToken: "", $inc: { tokenVersion: 1 } });
+  if (["admin", "super-admin"].includes(req.user.role)) {
+    await writeAuditLog(req, { action: "admin.logout", entityType: "session", entityId: userId, summary: `${req.user.email} logged out` });
+  }
 
   res.clearCookie("refreshToken");
 
@@ -795,4 +805,25 @@ export const logout = catchAsync(async (req, res) => {
     message: "Logged out successfully",
     data: {},
   });
+});
+
+export const refreshAccessToken = catchAsync(async (req, res) => {
+  const refreshToken = req.body.refreshToken || req.cookies?.refreshToken;
+  if (!refreshToken) throw new AppError(httpStatus.UNAUTHORIZED, "Refresh token is required");
+
+  let decoded;
+  try {
+    decoded = verifyToken(refreshToken, process.env.JWT_REFRESH_SECRET);
+  } catch {
+    throw new AppError(httpStatus.UNAUTHORIZED, "Invalid or expired refresh token");
+  }
+
+  const user = await User.findById(decoded._id).select("+refreshToken +tokenVersion");
+  if (!user || user.refreshToken !== refreshToken || user.isBlocked || Number(decoded.tokenVersion || 0) !== Number(user.tokenVersion || 0)) {
+    throw new AppError(httpStatus.UNAUTHORIZED, "Refresh token is no longer valid");
+  }
+
+  const payload = { _id: user._id, email: user.email, role: user.role, tokenVersion: user.tokenVersion || 0 };
+  const accessToken = createToken(payload, process.env.JWT_ACCESS_SECRET, process.env.JWT_ACCESS_EXPIRES_IN || "1d");
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Access token refreshed", data: { accessToken } });
 });

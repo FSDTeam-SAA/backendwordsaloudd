@@ -18,13 +18,16 @@ export const protect = catchAsync(async (req, res, next) => {
     throw new AppError(httpStatus.UNAUTHORIZED, "Invalid or expired token");
   }
 
-  const user = await User.findById(decoded._id);
+  const user = await User.findById(decoded._id).select("+tokenVersion");
   if (!user) {
     throw new AppError(httpStatus.UNAUTHORIZED, "User not found");
   }
 
   if (user.isBlocked) {
     throw new AppError(httpStatus.FORBIDDEN, "User is blocked");
+  }
+  if (decoded.tokenVersion !== undefined && Number(decoded.tokenVersion) !== Number(user.tokenVersion || 0)) {
+    throw new AppError(httpStatus.UNAUTHORIZED, "Session is no longer valid");
   }
 
   req.user = user;

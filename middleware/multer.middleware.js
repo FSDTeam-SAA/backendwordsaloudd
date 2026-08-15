@@ -7,6 +7,14 @@ if (!fs.existsSync(tempDir)) {
 }
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const allowedMimeTypes = new Set(["image/jpeg", "image/png", "video/mp4"]);
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024, files: 6 },
+  fileFilter: (req, file, callback) => {
+    if (!allowedMimeTypes.has(file.mimetype)) return callback(new Error("Only JPG, PNG, and MP4 files are allowed"));
+    callback(null, true);
+  },
+});
 
 export default upload;

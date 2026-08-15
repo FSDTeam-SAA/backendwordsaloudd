@@ -2,23 +2,25 @@ import nodemailer from "nodemailer";
 
 export const sendEmail = async (to, subject, html) => {
   
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  if (!smtpUser || !smtpPass) {
     console.log(`[sendEmail skipped - no SMTP config] To: ${to} | ${subject}`);
     return;
   }
 
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || "smtp.gmail.com",
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
+    host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 587,
+    secure: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) === 465,
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: smtpUser,
+      pass: smtpPass,
     },
   });
 
   await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+    from: process.env.SMTP_FROM || smtpUser,
     to,
     subject: subject || "Aturservicett",
     html,

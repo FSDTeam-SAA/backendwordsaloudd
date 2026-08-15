@@ -1,6 +1,6 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import User from "../model/user.model.js";
+import User, { ADMIN_PERMISSIONS } from "../model/user.model.js";
 
 const run = async () => {
   await mongoose.connect(process.env.MONGO_DB_URL);
@@ -15,7 +15,7 @@ const run = async () => {
 
   if (admin) {
     admin.role = "super-admin";
-    admin.adminPermissions = ["dashboard", "users", "advertisements"];
+    admin.adminPermissions = ADMIN_PERMISSIONS;
     admin.isBlocked = false;
     admin.isEmailVerified = true;
     admin.isProfileComplete = true;
@@ -29,11 +29,11 @@ const run = async () => {
       phoneNumber: "+18685550000",
       password,
       role: "super-admin",
-      adminPermissions: ["dashboard", "users", "advertisements"],
+      adminPermissions: ADMIN_PERMISSIONS,
       isEmailVerified: true,
       isProfileComplete: true,
     });
-    console.log(`Super-admin created -> email: ${email} / password: ${password}`);
+    console.log(`Super-admin created: ${email}`);
   }
 
   await mongoose.disconnect();
