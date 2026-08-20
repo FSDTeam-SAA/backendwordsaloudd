@@ -162,7 +162,6 @@ export const getMyProfile = catchAsync(async (req, res) => {
 export const getCategories = catchAsync(async (req, res) => {
   await ensureDefaultCategories();
   const counts = await TradesmanProfile.aggregate([
-    { $match: { isLive: true, verificationStatus: "verified" } },
     { $group: { _id: "$mainSkill", count: { $sum: 1 } } },
   ]);
 
@@ -196,7 +195,8 @@ export const browseTradesmen = catchAsync(async (req, res) => {
     limit = 20,
   } = req.query;
 
-  const filter = { isLive: true, verificationStatus: "verified" };
+  // every tradesman is listed - verification only drives the badge, not visibility
+  const filter = {};
   if (skill) filter.mainSkill = skill;
   if (area) filter.homeArea = new RegExp(area, "i");
 
@@ -282,9 +282,6 @@ export const getTradesmanById = catchAsync(async (req, res) => {
   );
 
   if (!profile) {
-    throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
-  }
-  if (!profile.isLive || profile.verificationStatus !== "verified") {
     throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
   }
 
