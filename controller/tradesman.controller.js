@@ -118,6 +118,46 @@ export const setPitchAndRate = catchAsync(async (req, res) => {
   });
 });
 
+export const removeWorkPhoto = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+  const { public_id } = req.body;
+
+  if (!userId) {
+    return next(new AppError(400, "User not authenticated"));
+  }
+
+  if (!public_id) {
+    return next(new AppError(400, "Photo public_id is required"));
+  }
+
+  // Find tradesman
+  const tradesman = await getOrCreateProfile(req.user._id);
+
+  if (!tradesman) {
+    return next(new AppError(404, "Tradesman not found"));
+  }
+
+  // Find the photo
+  const photoIndex = tradesman.workPhotos.findIndex(
+    (photo) => photo.public_id === public_id
+  );
+
+  if (photoIndex === -1) {
+    return next(new AppError(404, "Work photo not found"));
+  }
+
+  // Remove photo from database
+  tradesman.workPhotos.splice(photoIndex, 1);
+
+  await tradesman.save();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Work photo removed successfully",
+  });
+});
+
 export const goLive = catchAsync(async (req, res) => {
   const profile = await TradesmanProfile.findOne({ user: req.user._id });
   if (!profile) {
