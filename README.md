@@ -6,7 +6,7 @@ category, reviews, ad inquiries, and the admin dashboard (Dashboard Overview,
 User list, Advertisement, Settings).
 
 Stack: Node.js, Express, MongoDB (Mongoose), JWT auth, bcrypt, Cloudinary
-(image uploads), Nodemailer (OTP emails).
+(image uploads), Resend (OTP emails).
 
 ## 1. Install
 
@@ -25,9 +25,9 @@ cp .env.example .env
 - `MONGO_DB_URL` — a MongoDB connection string (local `mongodb://127.0.0.1:27017/aturservicett`
   or a MongoDB Atlas URL).
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — any long random strings.
-- `EMAIL_USER` / `EMAIL_PASS` — optional. If left blank, OTP emails are skipped
+- `RESEND_EMAIL_API_KEY` / `RESEND_EMAIL_FROM` — optional. If left blank, OTP emails are skipped
   and the OTP is simply returned in the API response body (`data.otp`) so you
-  can test signup/login/reset flows without setting up SMTP.
+  can test signup/login/reset flows without setting up Resend.
 - `CLOUDINARY_*` — optional. Only needed if you upload profile photos or work
   photos.
 
