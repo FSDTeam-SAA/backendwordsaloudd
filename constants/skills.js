@@ -5,7 +5,7 @@ export const SKILLS = [
   "Electrician",
   "Carpenter",
   "Joinery",
-  "Mobile Mech",
+  "Mechanic",
   "Painter",
   "Appliance",
   "AC Tech",

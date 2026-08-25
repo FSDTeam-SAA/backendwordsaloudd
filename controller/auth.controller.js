@@ -596,7 +596,7 @@ export const login = catchAsync(async (req, res) => {
     throw new AppError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
   }
 
-  // OTP একবার ব্যবহার হলে remove করে দাও
+
   user.clearOTP();
 
   const payload = {
