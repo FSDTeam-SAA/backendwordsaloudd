@@ -6,7 +6,7 @@ category, reviews, ad inquiries, and the admin dashboard (Dashboard Overview,
 User list, Advertisement, Settings).
 
 Stack: Node.js, Express, MongoDB (Mongoose), JWT auth, bcrypt, Cloudinary
-(image uploads), Nodemailer (OTP emails).
+(image uploads), Resend (OTP emails).
 
 ## 1. Install
 
@@ -25,9 +25,9 @@ cp .env.example .env
 - `MONGO_DB_URL` — a MongoDB connection string (local `mongodb://127.0.0.1:27017/aturservicett`
   or a MongoDB Atlas URL).
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — any long random strings.
-- `EMAIL_USER` / `EMAIL_PASS` — optional. If left blank, OTP emails are skipped
+- `RESEND_EMAIL_API_KEY` / `RESEND_EMAIL_FROM` — optional. If left blank, OTP emails are skipped
   and the OTP is simply returned in the API response body (`data.otp`) so you
-  can test signup/login/reset flows without setting up SMTP.
+  can test signup/login/reset flows without setting up Resend.
 - `CLOUDINARY_*` — optional. Only needed if you upload profile photos or work
   photos.
 
@@ -42,15 +42,17 @@ npm start
 The API listens on `http://localhost:5000` (or your `PORT`), mounted at
 `/api/v1`.
 
-## 4. Create an admin account (for the dashboard)
+## 4. Create or promote the initial super-admin
 
 ```bash
 npm run seed:admin
 ```
 
-Creates `admin@aturservicett.com` / `Admin@123` by default (override with
-`ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars before running). Log in with
-`POST /api/v1/auth/login` to get a token, then call the `/admin/*` routes.
+Creates the initial super-admin, or promotes the existing administrator matching
+`ADMIN_EMAIL`. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before running this in a
+production environment. Run it once after deploying the admin-management update
+so the designated owner can open **Admin Management** and manage future admin
+accounts without database access.
 
 ---
 
@@ -128,6 +130,11 @@ Protected routes require `Authorization: Bearer <accessToken>`.
 
 ### Admin — `/api/v1/admin` (admin auth required, except where noted)
 
+Regular administrators receive explicit `dashboard`, `users`, and/or
+`advertisements` permissions. Administrator-management routes are restricted to
+the `super-admin` role. Public registration continues to allow only `client` and
+`tradesman` roles.
+
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/dashboard` | Totals + weekly occupancy + yearly registration chart data |
@@ -140,6 +147,9 @@ Protected routes require `Authorization: Bearer <accessToken>`.
 | POST | `/advertisements` | `{ title, description }` — "Create New Advertisement" |
 | PATCH | `/advertisements/:id` | edit |
 | DELETE | `/advertisements/:id` | delete |
+| GET | `/administrators` | super-admin only; list administrator accounts |
+| POST | `/administrators` | super-admin only; create an admin with role and permissions |
+| PATCH | `/administrators/:adminId` | super-admin only; edit permissions/role or revoke/restore access |
 
 ---
 

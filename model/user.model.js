@@ -1,6 +1,18 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
+export const ADMIN_PERMISSIONS = [
+  "dashboard",
+  "users",
+  "verification",
+  "advertisements",
+  "reviews",
+  "categories",
+  "exports",
+  "audit",
+  "settings",
+];
+
 const userSchema = new Schema(
   {
     firstName: {
@@ -44,9 +56,20 @@ const userSchema = new Schema(
 
     role: {
       type: String,
-      enum: ["client", "tradesman", "admin"],
+      enum: ["client", "tradesman", "admin", "super-admin"],
       default: "client",
       required: [true, "Role is required"],
+    },
+
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
+
+    adminPermissions: {
+      type: [{ type: String, enum: ADMIN_PERMISSIONS }],
+      default: [],
     },
 
     area: {
@@ -155,6 +178,7 @@ userSchema.methods.toJSON = function () {
   delete obj.otp;
   delete obj.resetPasswordOtp;
   delete obj.refreshToken;
+  delete obj.tokenVersion;
   return obj;
 };
 

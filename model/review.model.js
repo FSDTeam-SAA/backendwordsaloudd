@@ -34,6 +34,16 @@ const reviewSchema = new Schema(
       trim: true,
       default: "",
     },
+
+    moderationStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "approved",
+      index: true,
+    },
+    moderatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    moderatedAt: { type: Date, default: null },
+    moderationNote: { type: String, trim: true, default: "" },
   },
   {
     timestamps: true,
