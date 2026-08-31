@@ -163,13 +163,13 @@ userSchema.methods.isResetPasswordOTPValid = function (code) {
 };
 
 userSchema.virtual("name").get(function () {
-  return `${this.firstName} ${this.lastName}`.trim();
+  return `${this.firstName || ""} ${this.lastName || ""}`.trim();
 });
 
 
 userSchema.methods.publicName = function () {
   const lastInitial = this.lastName ? `${this.lastName.charAt(0)}.` : "";
-  return `${this.firstName} ${lastInitial}`.trim();
+  return `${this.firstName || ""} ${lastInitial}`.trim();
 };
 
 userSchema.methods.toJSON = function () {

@@ -1,7 +1,7 @@
  import AuditLog from "../model/auditLog.model.js";
 import Category from "../model/category.model.js";
 import PlatformSettings from "../model/platformSettings.model.js";
-import { SKILLS } from "../constants/skills.js";
+import { CATEGORY_ICONS, SKILLS } from "../constants/skills.js";
 
 export const slugify = (value) => String(value || "")
   .trim()
@@ -12,7 +12,13 @@ export const slugify = (value) => String(value || "")
 export const ensureDefaultCategories = async () => {
   const count = await Category.estimatedDocumentCount();
   if (!count) {
-    await Category.insertMany(SKILLS.map((name, order) => ({ name, slug: slugify(name), order })));
+    await Category.insertMany(SKILLS.map((name, order) => ({
+      name,
+      slug: slugify(name),
+      icon: CATEGORY_ICONS[name] || "",
+      order,
+      newUntil: null,
+    })));
   }
 };
 
@@ -20,6 +26,28 @@ export const getActiveCategoryNames = async () => {
   await ensureDefaultCategories();
   const categories = await Category.find({ isActive: true }).sort({ order: 1, name: 1 }).select("name");
   return categories.map((category) => category.name);
+};
+
+export const normalizeCategoryIcon = (value) => {
+  const icon = String(value || "").trim();
+  if (!icon) return "";
+
+  try {
+    const url = new URL(icon);
+    if (url.protocol !== "https:") throw new Error();
+    return url.toString();
+  } catch {
+    if (/^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\uFE0F|\u200D)+$/u.test(icon) && icon.length <= 16) return icon;
+    throw new Error("Category icon must be an emoji or a valid HTTPS URL");
+  }
+};
+
+export const categoryJson = (category) => {
+  const value = typeof category.toJSON === "function" ? category.toJSON() : category;
+  return {
+    ...value,
+    isNew: Boolean(value.newUntil && new Date(value.newUntil) > new Date()),
+  };
 };
 
 export const getPlatformSettings = async () => PlatformSettings.findOneAndUpdate(

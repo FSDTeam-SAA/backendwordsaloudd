@@ -7,6 +7,7 @@ const categorySchema = new Schema(
     icon: { type: String, trim: true, default: "" },
     order: { type: Number, min: 0, default: 0, index: true },
     isActive: { type: Boolean, default: true, index: true },
+    newUntil: { type: Date, default: null, index: true },
   },
   { timestamps: true }
 );

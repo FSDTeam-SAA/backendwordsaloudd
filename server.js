@@ -7,24 +7,46 @@ import router from "./mainroute/index.js";
 import globalErrorHandler from "./middleware/globalErrorHandler.js";
 import notFound from "./middleware/notFound.js";
 import { rateLimit } from "./middleware/rateLimit.middleware.js";
+import AppError from "./errors/AppError.js";
 
 const app = express();
 
 app.set("trust proxy", true);
 
-const allowedOrigins = String(process.env.CORS_ORIGINS || "http://localhost:3000")
+const normalizeOrigin = (origin) => {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return "";
+  }
+};
+
+const configuredOrigins = [
+  process.env.CORS_ORIGINS,
+  process.env.ADMIN_DASHBOARD_URL,
+]
+  .filter(Boolean)
+  .join(",");
+const allowedOrigins = String(
+  configuredOrigins || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3000"),
+)
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin.trim()))
   .filter(Boolean);
+
+if (process.env.NODE_ENV === "production" && !allowedOrigins.length) {
+  console.warn("No production admin origin is configured. Set CORS_ORIGINS or ADMIN_DASHBOARD_URL.");
+}
 
 app.use(
   cors({
     credentials: true,
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error("Origin is not allowed by CORS"));
+      if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) return callback(null, true);
+      callback(new AppError(403, `Origin ${origin} is not allowed by CORS`));
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    optionsSuccessStatus: 204,
   })
 );
 

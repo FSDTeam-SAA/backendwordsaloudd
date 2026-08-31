@@ -30,6 +30,12 @@ cp .env.example .env
   can test signup/login/reset flows without setting up Resend.
 - `CLOUDINARY_*` — optional. Only needed if you upload profile photos or work
   photos.
+- `CORS_ORIGINS` — comma-separated exact admin dashboard origins. Required in
+  production for browser write actions.
+- `ADMIN_DASHBOARD_URL` — public dashboard URL used by CORS and administrator
+  invitation links.
+- `ADMIN_INVITE_EXPIRES_HOURS` — invitation lifetime in hours (defaults to 24,
+  capped at 168).
 
 ## 3. Run
 
@@ -53,6 +59,20 @@ Creates the initial super-admin, or promotes the existing administrator matching
 production environment. Run it once after deploying the admin-management update
 so the designated owner can open **Admin Management** and manage future admin
 accounts without database access.
+
+## 5. Run the one-time data migrations
+
+After deploying the verification/category update, run:
+
+```bash
+npm run migrate:verification
+npm run migrate:categories
+```
+
+The first command creates pending profiles for existing tradesmen and repairs
+missing verification statuses. The second normalizes category ordering and
+replaces legacy invalid icon values with configured category emoji where
+possible. Both scripts are safe to rerun.
 
 ---
 
@@ -144,12 +164,15 @@ the `super-admin` role. Public registration continues to allow only `client` and
 | POST | `/users/vip` | "Add VIP Member" modal |
 | GET | `/advertisements` | admin list |
 | GET | `/advertisements/active` | **public** — active ads only, for sponsored slots in the app |
-| POST | `/advertisements` | `{ title, description }` — "Create New Advertisement" |
+| POST | `/advertisements` | multipart campaign fields + required JPG/PNG/MP4 media |
 | PATCH | `/advertisements/:id` | edit |
 | DELETE | `/advertisements/:id` | delete |
 | GET | `/administrators` | super-admin only; list administrator accounts |
-| POST | `/administrators` | super-admin only; create an admin with role and permissions |
+| POST | `/administrators` | super-admin only; email a single-use admin invitation |
 | PATCH | `/administrators/:adminId` | super-admin only; edit permissions/role or revoke/restore access |
+| GET | `/administrator-invitations` | super-admin only; pending/expired invitations |
+| POST | `/administrator-invitations/:id/resend` | super-admin only; rotate token and resend |
+| DELETE | `/administrator-invitations/:id` | super-admin only; revoke an invitation |
 
 ---
 

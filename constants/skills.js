@@ -23,6 +23,31 @@ export const SKILLS = [
   "Caterer"
 ];
 
+export const CATEGORY_ICONS = {
+  "Phone Tech": "📱",
+  "Computer Tech": "💻",
+  Plumber: "🔧",
+  Electrician: "⚡",
+  Carpenter: "🪚",
+  Joinery: "🪵",
+  Mechanic: "🚗",
+  Painter: "🎨",
+  Appliance: "🔌",
+  "AC Tech": "❄️",
+  "Tile Man": "🔲",
+  Mason: "🧱",
+  "Glass Man": "🪟",
+  Roofer: "🏠",
+  "Welder/Gate": "🔥",
+  "Pool Cleaner": "🏊",
+  "Tree Cutter": "🌳",
+  Landscaper: "🌿",
+  "Auto Body": "🚙",
+  Contractor: "👷",
+  "Maid Service": "🧹",
+  Caterer: "🍽️",
+};
+
 export const TRAVEL_RANGES = [
   "5km - Local only",
   "Trinidad wide",

@@ -28,6 +28,16 @@ const globalErrorHandler = (err, req, res, next) => {
     statusCode = err.statusCode;
     message = err.message;
     errorSources = [{ path: "", message: err.message }];
+  } else if (err?.name === "MulterError") {
+    statusCode = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    message = err.code === "LIMIT_FILE_SIZE"
+      ? "Uploaded media must be 20 MB or smaller"
+      : err.message;
+    errorSources = [{ path: "media", message }];
+  } else if (err?.message === "Only JPG, PNG, and MP4 files are allowed") {
+    statusCode = 400;
+    message = err.message;
+    errorSources = [{ path: "media", message }];
   }
 
   return res.status(statusCode).json({

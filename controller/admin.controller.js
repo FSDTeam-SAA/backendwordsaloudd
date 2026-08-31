@@ -6,6 +6,8 @@ import Review from "../model/review.model.js";
 import AdInquiry from "../model/adInquiry.model.js";
 import Category from "../model/category.model.js";
 import AuditLog from "../model/auditLog.model.js";
+import AdminInvitation from "../model/adminInvitation.model.js";
+import validator from "validator";
 import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
@@ -13,11 +15,14 @@ import { generateOTP } from "../utils/commonMethod.js";
 import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/commonMethod.js";
 import {
   ensureDefaultCategories,
+  categoryJson,
   getActiveCategoryNames,
   getPlatformSettings,
+  normalizeCategoryIcon,
   slugify,
   writeAuditLog,
 } from "../utils/adminHelpers.js";
+import { sendAdminInvitation } from "../utils/adminInvitation.js";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -347,10 +352,15 @@ const uploadAdvertisementMedia = async (file) => {
   if (!isImage && !isVideo) {
     throw new AppError(httpStatus.BAD_REQUEST, "Advertisement media must be JPG, PNG, or MP4");
   }
-  const result = await uploadOnCloudinary(file.buffer, {
-    folder: "aturservicett/advertisements",
-    resource_type: isVideo ? "video" : "image",
-  });
+  let result;
+  try {
+    result = await uploadOnCloudinary(file.buffer, {
+      folder: "aturservicett/advertisements",
+      resource_type: isVideo ? "video" : "image",
+    });
+  } catch {
+    throw new AppError(httpStatus.BAD_GATEWAY, "Advertisement media could not be uploaded. Please try again");
+  }
   if (isImage && (result.width < 600 || result.height < 338 || Math.abs(result.width / result.height - 16 / 9) > 0.03)) {
     await deleteFromCloudinary(result.public_id, "image");
     throw new AppError(httpStatus.BAD_REQUEST, "Image must be at least 600×338 pixels and use a 16:9 aspect ratio");
@@ -389,18 +399,25 @@ export const createAdvertisement = catchAsync(async (req, res) => {
     throw new AppError(httpStatus.BAD_REQUEST, "End date must be after the start date");
   }
   const media = await uploadAdvertisementMedia(req.file);
-  const ad = await Advertisement.create({
-    title,
-    description,
-    createdBy: req.user._id,
-    media: media || undefined,
-    targetUrl: validateUrl(req.body.targetUrl),
-    categories,
-    startDate: parsedStart,
-    endDate: parsedEnd,
-    priority: clamp(req.body.priority, 0, 1000, 0),
-    advertiser: { name: advertiserName || "", email: advertiserEmail || "", phone: advertiserPhone || "" },
-  });
+  if (!media) throw new AppError(httpStatus.BAD_REQUEST, "An advertisement image or MP4 video is required");
+  let ad;
+  try {
+    ad = await Advertisement.create({
+      title,
+      description,
+      createdBy: req.user._id,
+      media,
+      targetUrl: validateUrl(req.body.targetUrl),
+      categories,
+      startDate: parsedStart,
+      endDate: parsedEnd,
+      priority: clamp(req.body.priority, 0, 1000, 0),
+      advertiser: { name: advertiserName || "", email: advertiserEmail || "", phone: advertiserPhone || "" },
+    });
+  } catch (error) {
+    await deleteFromCloudinary(media.public_id, media.mediaType);
+    throw error;
+  }
   await writeAuditLog(req, { action: "advertisement.created", entityType: "advertisement", entityId: ad._id, summary: ad.title });
 
   sendResponse(res, {
@@ -646,16 +663,32 @@ export const getCategoriesAdmin = catchAsync(async (req, res) => {
     TradesmanProfile.aggregate([{ $group: { _id: "$mainSkill", count: { $sum: 1 } } }]),
   ]);
   const countMap = new Map(counts.map((item) => [item._id, item.count]));
-  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Categories fetched", data: categories.map((category) => ({ ...category.toJSON(), tradesmanCount: countMap.get(category.name) || 0 })) });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Categories fetched", data: categories.map((category) => ({ ...categoryJson(category), tradesmanCount: countMap.get(category.name) || 0 })) });
 });
 
 export const createCategory = catchAsync(async (req, res) => {
   const name = String(req.body.name || "").trim();
   if (!name) throw new AppError(httpStatus.BAD_REQUEST, "Category name is required");
-  const order = req.body.order === undefined ? await Category.countDocuments() : clamp(req.body.order, 0, 10000, 0);
-  const category = await Category.create({ name, slug: slugify(name), icon: String(req.body.icon || "").trim(), order, isActive: req.body.isActive !== false });
+  if (await Category.exists({ $or: [{ name }, { slug: slugify(name) }] })) {
+    throw new AppError(httpStatus.CONFLICT, "A category with this name already exists");
+  }
+  let icon;
+  try {
+    icon = normalizeCategoryIcon(req.body.icon);
+  } catch (error) {
+    throw new AppError(httpStatus.BAD_REQUEST, error.message);
+  }
+  await Category.updateMany({}, { $inc: { order: 1 } });
+  const category = await Category.create({
+    name,
+    slug: slugify(name),
+    icon,
+    order: 0,
+    isActive: req.body.isActive !== false,
+    newUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
   await writeAuditLog(req, { action: "category.created", entityType: "category", entityId: category._id, summary: category.name });
-  sendResponse(res, { statusCode: httpStatus.CREATED, success: true, message: "Category created", data: category });
+  sendResponse(res, { statusCode: httpStatus.CREATED, success: true, message: "Category created", data: categoryJson(category) });
 });
 
 export const updateCategory = catchAsync(async (req, res) => {
@@ -668,8 +701,29 @@ export const updateCategory = catchAsync(async (req, res) => {
     category.name = name;
     category.slug = slugify(name);
   }
-  if (req.body.icon !== undefined) category.icon = String(req.body.icon).trim();
-  if (req.body.order !== undefined) category.order = clamp(req.body.order, 0, 10000, category.order);
+  if (req.body.icon !== undefined) {
+    try {
+      category.icon = normalizeCategoryIcon(req.body.icon);
+    } catch (error) {
+      throw new AppError(httpStatus.BAD_REQUEST, error.message);
+    }
+  }
+  if (req.body.order !== undefined) {
+    const total = await Category.countDocuments();
+    const nextOrder = clamp(req.body.order, 0, Math.max(0, total - 1), category.order);
+    if (nextOrder < category.order) {
+      await Category.updateMany(
+        { _id: { $ne: category._id }, order: { $gte: nextOrder, $lt: category.order } },
+        { $inc: { order: 1 } },
+      );
+    } else if (nextOrder > category.order) {
+      await Category.updateMany(
+        { _id: { $ne: category._id }, order: { $gt: category.order, $lte: nextOrder } },
+        { $inc: { order: -1 } },
+      );
+    }
+    category.order = nextOrder;
+  }
   if (typeof req.body.isActive === "boolean") category.isActive = req.body.isActive;
   await category.save();
   if (previousName !== category.name) {
@@ -680,7 +734,7 @@ export const updateCategory = catchAsync(async (req, res) => {
     ]);
   }
   await writeAuditLog(req, { action: "category.updated", entityType: "category", entityId: category._id, summary: category.name, metadata: { previousName } });
-  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Category updated", data: category });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Category updated", data: categoryJson(category) });
 });
 
 export const getSettingsAdmin = catchAsync(async (req, res) => {
@@ -803,40 +857,117 @@ export const getAdminList = catchAsync(async (req, res) => {
 });
 
 export const createAdmin = catchAsync(async (req, res) => {
-  const { firstName, lastName, email, phoneNumber = "", password, role = "admin" } = req.body;
-
-  if (!firstName?.trim() || !lastName?.trim() || !email?.trim() || !password) {
-    throw new AppError(httpStatus.BAD_REQUEST, "First name, last name, email and password are required");
+  const email = String(req.body.email || "").toLowerCase().trim();
+  if (!validator.isEmail(email)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "A valid administrator email is required");
   }
-  if (password.length < 8) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Password must be at least 8 characters");
-  }
-  if (!["admin", "super-admin"].includes(role)) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Invalid administrator role");
+  if (await User.exists({ email })) {
+    throw new AppError(httpStatus.CONFLICT, "An account already exists for this email");
   }
 
-  const permissions = role === "super-admin"
-    ? ADMIN_PERMISSIONS
-    : normalizePermissions(req.body.permissions ?? []);
-
-  const admin = await User.create({
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
-    email: email.toLowerCase().trim(),
-    phoneNumber: phoneNumber.trim(),
-    password,
-    role,
-    adminPermissions: permissions,
-    isEmailVerified: true,
-    isProfileComplete: true,
+  let invitation = await AdminInvitation.findOne({ email }).select("+tokenHash");
+  if (!invitation) {
+    invitation = new AdminInvitation({
+      email,
+      invitedBy: req.user._id,
+      role: "admin",
+      permissions: ["dashboard"],
+      tokenHash: "pending",
+      expiresAt: new Date(),
+    });
+  } else {
+    invitation.invitedBy = req.user._id;
+    invitation.role = "admin";
+    invitation.permissions = ["dashboard"];
+  }
+  const delivery = await sendAdminInvitation(invitation);
+  await writeAuditLog(req, {
+    action: "administrator.invited",
+    entityType: "admin-invitation",
+    entityId: invitation._id,
+    summary: `${email} invited`,
+    metadata: { expiresAt: invitation.expiresAt },
   });
-  await writeAuditLog(req, { action: "administrator.created", entityType: "administrator", entityId: admin._id, summary: `${admin.email} created`, metadata: { role: admin.role, permissions: admin.adminPermissions } });
 
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
-    message: "Administrator account created",
-    data: admin,
+    message: "Administrator invitation sent",
+    data: {
+      _id: invitation._id,
+      email: invitation.email,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      ...(process.env.NODE_ENV === "production" ? {} : { acceptUrl: delivery.acceptUrl }),
+    },
+  });
+});
+
+export const getAdminInvitations = catchAsync(async (req, res) => {
+  await AdminInvitation.updateMany(
+    { status: "pending", expiresAt: { $lte: new Date() } },
+    { $set: { status: "expired" } },
+  );
+  const invitations = await AdminInvitation.find({ status: { $in: ["pending", "expired"] } })
+    .select("email status expiresAt invitedBy createdAt updatedAt")
+    .populate("invitedBy", "firstName lastName email")
+    .sort({ createdAt: -1 });
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Administrator invitations fetched",
+    data: invitations,
+  });
+});
+
+export const resendAdminInvitation = catchAsync(async (req, res) => {
+  const invitation = await AdminInvitation.findById(req.params.invitationId).select("+tokenHash");
+  if (!invitation || invitation.status === "accepted") {
+    throw new AppError(httpStatus.NOT_FOUND, "Administrator invitation not found");
+  }
+  if (await User.exists({ email: invitation.email })) {
+    throw new AppError(httpStatus.CONFLICT, "An account already exists for this email");
+  }
+  invitation.invitedBy = req.user._id;
+  const delivery = await sendAdminInvitation(invitation);
+  await writeAuditLog(req, {
+    action: "administrator.invitation.resent",
+    entityType: "admin-invitation",
+    entityId: invitation._id,
+    summary: invitation.email,
+  });
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Administrator invitation resent",
+    data: {
+      _id: invitation._id,
+      email: invitation.email,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      ...(process.env.NODE_ENV === "production" ? {} : { acceptUrl: delivery.acceptUrl }),
+    },
+  });
+});
+
+export const revokeAdminInvitation = catchAsync(async (req, res) => {
+  const invitation = await AdminInvitation.findOneAndUpdate(
+    { _id: req.params.invitationId, status: { $ne: "accepted" } },
+    { $set: { status: "revoked" } },
+    { new: true },
+  );
+  if (!invitation) throw new AppError(httpStatus.NOT_FOUND, "Administrator invitation not found");
+  await writeAuditLog(req, {
+    action: "administrator.invitation.revoked",
+    entityType: "admin-invitation",
+    entityId: invitation._id,
+    summary: invitation.email,
+  });
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Administrator invitation revoked",
+    data: invitation,
   });
 });
 

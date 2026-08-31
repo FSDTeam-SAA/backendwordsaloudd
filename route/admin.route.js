@@ -27,6 +27,9 @@ import {
   ,moderateReview
   ,getAdInquiriesAdmin
   ,updateAdInquiry
+  ,getAdminInvitations
+  ,resendAdminInvitation
+  ,revokeAdminInvitation
 } from "../controller/admin.controller.js";
 import { protect, requireAdminPermission, restrictTo } from "../middleware/auth.middleware.js";
 import upload from "../middleware/multer.middleware.js";
@@ -74,5 +77,8 @@ router.patch("/reviews/:id", requireAdminPermission("reviews"), moderateReview);
 router.get("/administrators", restrictTo("super-admin"), getAdminList);
 router.post("/administrators", restrictTo("super-admin"), createAdmin);
 router.patch("/administrators/:adminId", restrictTo("super-admin"), updateAdmin);
+router.get("/administrator-invitations", restrictTo("super-admin"), getAdminInvitations);
+router.post("/administrator-invitations/:invitationId/resend", restrictTo("super-admin"), resendAdminInvitation);
+router.delete("/administrator-invitations/:invitationId", restrictTo("super-admin"), revokeAdminInvitation);
 
 export default router;

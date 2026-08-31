@@ -8,7 +8,7 @@ import sendResponse from "../utils/sendResponse.js";
 import { uploadOnCloudinary } from "../utils/commonMethod.js";
 import { TRAVEL_RANGES, normalizeTravelRange, normalizeRateUnit } from "../constants/skills.js";
 import Category from "../model/category.model.js";
-import { ensureDefaultCategories, getActiveCategoryNames } from "../utils/adminHelpers.js";
+import { categoryJson, ensureDefaultCategories, getActiveCategoryNames } from "../utils/adminHelpers.js";
 
 const getOrCreateProfile = async (userId) => {
   let profile = await TradesmanProfile.findOne({ user: userId });
@@ -215,6 +215,8 @@ export const getCategories = catchAsync(async (req, res) => {
     skill: category.name,
     listedCount: countMap[category.name] || 0,
     icon: category.icon,
+    isNew: categoryJson(category).isNew,
+    newUntil: category.newUntil,
   }));
 
   sendResponse(res, {

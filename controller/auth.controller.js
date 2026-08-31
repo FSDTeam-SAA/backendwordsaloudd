@@ -7,8 +7,82 @@ import { createToken, verifyToken } from "../utils/authToken.js";
 import { generateOTP } from "../utils/commonMethod.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { writeAuditLog } from "../utils/adminHelpers.js";
+import TradesmanProfile from "../model/tradesmanProfile.model.js";
+import AdminInvitation from "../model/adminInvitation.model.js";
+import { hashInvitationToken } from "../utils/adminInvitation.js";
 
 const includeDevelopmentOtp = (otp) => process.env.NODE_ENV === "production" ? {} : { otp };
+
+const findPendingAdminInvitation = async (token) => {
+  if (!token || String(token).length < 32) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invitation token is required");
+  }
+  const invitation = await AdminInvitation.findOne({
+    tokenHash: hashInvitationToken(token),
+    status: "pending",
+  });
+  if (!invitation) {
+    throw new AppError(httpStatus.BAD_REQUEST, "This administrator invitation is invalid or has already been used");
+  }
+  if (invitation.expiresAt <= new Date()) {
+    invitation.status = "expired";
+    await invitation.save();
+    throw new AppError(httpStatus.GONE, "This administrator invitation has expired");
+  }
+  return invitation;
+};
+
+export const validateAdminInvitation = catchAsync(async (req, res) => {
+  const invitation = await findPendingAdminInvitation(req.query.token);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Administrator invitation is valid",
+    data: { email: invitation.email, expiresAt: invitation.expiresAt },
+  });
+});
+
+export const acceptAdminInvitation = catchAsync(async (req, res) => {
+  const { token, password, confirmPassword } = req.body;
+  if (!password || !confirmPassword) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Password and confirmation are required");
+  }
+  if (password !== confirmPassword) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Passwords do not match");
+  }
+  if (String(password).length < 8) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Password must be at least 8 characters");
+  }
+
+  const invitation = await findPendingAdminInvitation(token);
+  if (await User.exists({ email: invitation.email })) {
+    throw new AppError(httpStatus.CONFLICT, "An account already exists for this email");
+  }
+  const admin = await User.create({
+    email: invitation.email,
+    password,
+    role: "admin",
+    adminPermissions: invitation.permissions?.length ? invitation.permissions : ["dashboard"],
+    isEmailVerified: true,
+    isProfileComplete: true,
+  });
+  invitation.status = "accepted";
+  invitation.acceptedBy = admin._id;
+  invitation.acceptedAt = new Date();
+  await invitation.save();
+  await writeAuditLog({ ...req, user: admin }, {
+    action: "administrator.invitation.accepted",
+    entityType: "administrator",
+    entityId: admin._id,
+    summary: `${admin.email} activated their account`,
+  });
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: "Administrator account activated. You can now sign in",
+    data: { email: admin.email },
+  });
+});
 
 
 // export const register = catchAsync(async (req, res) => {
@@ -228,6 +302,20 @@ export const register = catchAsync(async (req, res) => {
   user.clearOTP();
 
   await user.save();
+
+  if (user.role === "tradesman") {
+    await TradesmanProfile.updateOne(
+      { user: user._id },
+      {
+        $setOnInsert: {
+          user: user._id,
+          verificationStatus: "pending",
+          "verification.submittedAt": new Date(),
+        },
+      },
+      { upsert: true },
+    );
+  }
 
   sendResponse(res, {
     statusCode: httpStatus.CREATED,

@@ -10,6 +10,8 @@ import {
   resetPassword,
   logout,
   refreshAccessToken,
+  validateAdminInvitation,
+  acceptAdminInvitation,
 } from "../controller/auth.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 
@@ -24,6 +26,8 @@ router.post("/forget-password", forgetPassword);
 router.post("/verify-reset-otp", verifyResetPasswordOTP);
 router.post("/reset-password", resetPassword);
 router.post("/refresh-token", refreshAccessToken);
+router.get("/admin-invitations/validate", validateAdminInvitation);
+router.post("/admin-invitations/accept", acceptAdminInvitation);
 router.post("/logout", protect, logout);
 
 export default router;
