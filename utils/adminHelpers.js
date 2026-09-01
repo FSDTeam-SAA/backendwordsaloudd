@@ -24,7 +24,7 @@ export const ensureDefaultCategories = async () => {
 
 export const getActiveCategoryNames = async () => {
   await ensureDefaultCategories();
-  const categories = await Category.find({ isActive: true }).sort({ order: 1, name: 1 }).select("name");
+  const categories = await Category.find().sort({ order: 1, name: 1 }).select("name");
   return categories.map((category) => category.name);
 };
 
