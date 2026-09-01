@@ -36,6 +36,24 @@ const clamp = (value, min, max, fallback) => {
   return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
 };
 
+const bulkIds = (value) => {
+  if (!Array.isArray(value) || !value.length || value.length > 100) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Select between 1 and 100 records");
+  }
+  return [...new Set(value.map(String))];
+};
+
+const refreshTradesmanRatings = async (profileIds) => {
+  for (const profileId of [...new Set(profileIds.map(String))]) {
+    const reviews = await Review.find({ tradesman: profileId, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] }).select("rating");
+    const average = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
+    await TradesmanProfile.findByIdAndUpdate(profileId, {
+      ratingAverage: Math.round(average * 10) / 10,
+      ratingCount: reviews.length,
+    });
+  }
+};
+
 const csvCell = (value) => {
   let text = value == null ? "" : String(value);
   if (/^[=+\-@]/.test(text)) text = `'${text}`;
@@ -560,6 +578,15 @@ export const updateVerificationStatus = catchAsync(async (req, res) => {
   });
 });
 
+export const bulkDeleteAdvertisements = catchAsync(async (req, res) => {
+  const ids = bulkIds(req.body.ids);
+  const ads = await Advertisement.find({ _id: { $in: ids } });
+  await Advertisement.deleteMany({ _id: { $in: ads.map((ad) => ad._id) } });
+  await Promise.all(ads.filter((ad) => ad.media?.public_id).map((ad) => deleteFromCloudinary(ad.media.public_id, ad.media.mediaType)));
+  await writeAuditLog(req, { action: "advertisement.bulk-deleted", entityType: "advertisement", summary: `${ads.length} advertisements deleted`, metadata: { ids } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `${ads.length} advertisements deleted`, data: { affected: ads.length } });
+});
+
 export const bulkUserAction = catchAsync(async (req, res) => {
   const { ids, action, reason = "" } = req.body;
   if (!Array.isArray(ids) || !ids.length || ids.length > 100) {
@@ -658,12 +685,16 @@ export const exportReviewsCsv = catchAsync(async (req, res) => {
 
 export const getCategoriesAdmin = catchAsync(async (req, res) => {
   await ensureDefaultCategories();
-  const [categories, counts] = await Promise.all([
-    Category.find().sort({ order: 1, name: 1 }),
+  const paginated = req.query.page !== undefined || req.query.limit !== undefined;
+  const page = clamp(req.query.page, 1, 100000, 1);
+  const limit = clamp(req.query.limit, 1, 100, 10);
+  const [categories, counts, total] = await Promise.all([
+    Category.find().sort({ order: 1, name: 1 }).skip(paginated ? (page - 1) * limit : 0).limit(paginated ? limit : 0),
     TradesmanProfile.aggregate([{ $group: { _id: "$mainSkill", count: { $sum: 1 } } }]),
+    Category.countDocuments(),
   ]);
   const countMap = new Map(counts.map((item) => [item._id, item.count]));
-  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Categories fetched", data: categories.map((category) => ({ ...categoryJson(category), tradesmanCount: countMap.get(category.name) || 0 })) });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Categories fetched", data: categories.map((category) => ({ ...categoryJson(category), tradesmanCount: countMap.get(category.name) || 0 })), ...(paginated ? { meta: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) } } : {}) });
 });
 
 export const createCategory = catchAsync(async (req, res) => {
@@ -737,6 +768,38 @@ export const updateCategory = catchAsync(async (req, res) => {
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Category updated", data: categoryJson(category) });
 });
 
+const removeCategories = async (ids) => {
+  const categories = await Category.find({ _id: { $in: ids } });
+  if (!categories.length) return [];
+  const total = await Category.countDocuments();
+  if (categories.length >= total) throw new AppError(httpStatus.BAD_REQUEST, "At least one category must remain");
+  const names = categories.map((category) => category.name);
+  const inUse = await TradesmanProfile.distinct("mainSkill", { mainSkill: { $in: names } });
+  if (inUse.length) throw new AppError(httpStatus.CONFLICT, `Deactivate categories used by tradesmen instead: ${inUse.join(", ")}`);
+  await Promise.all([
+    Category.deleteMany({ _id: { $in: categories.map((category) => category._id) } }),
+    TradesmanProfile.updateMany({}, { $pull: { extraSkills: { $in: names } } }),
+    Advertisement.updateMany({}, { $pull: { categories: { $in: names } } }),
+  ]);
+  const remaining = await Category.find().sort({ order: 1, name: 1 }).select("_id");
+  await Promise.all(remaining.map((category, order) => Category.updateOne({ _id: category._id }, { $set: { order } })));
+  return categories;
+};
+
+export const deleteCategory = catchAsync(async (req, res) => {
+  const categories = await removeCategories([req.params.id]);
+  if (!categories.length) throw new AppError(httpStatus.NOT_FOUND, "Category not found");
+  await writeAuditLog(req, { action: "category.deleted", entityType: "category", entityId: categories[0]._id, summary: categories[0].name });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Category deleted", data: { affected: 1 } });
+});
+
+export const bulkDeleteCategories = catchAsync(async (req, res) => {
+  const ids = bulkIds(req.body.ids);
+  const categories = await removeCategories(ids);
+  await writeAuditLog(req, { action: "category.bulk-deleted", entityType: "category", summary: `${categories.length} categories deleted`, metadata: { ids } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `${categories.length} categories deleted`, data: { affected: categories.length } });
+});
+
 export const getSettingsAdmin = catchAsync(async (req, res) => {
   const settings = await getPlatformSettings();
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Platform settings fetched", data: settings });
@@ -767,6 +830,20 @@ export const getAuditLogs = catchAsync(async (req, res) => {
     AuditLog.countDocuments(filter),
   ]);
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Audit logs fetched", data: logs, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+});
+
+export const deleteAuditLog = catchAsync(async (req, res) => {
+  const log = await AuditLog.findByIdAndDelete(req.params.id);
+  if (!log) throw new AppError(httpStatus.NOT_FOUND, "Audit entry not found");
+  await writeAuditLog(req, { action: "audit-log.deleted", entityType: "audit-log", entityId: log._id, summary: "Audit entry deleted" });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Audit entry deleted", data: { affected: 1 } });
+});
+
+export const bulkDeleteAuditLogs = catchAsync(async (req, res) => {
+  const ids = bulkIds(req.body.ids);
+  const result = await AuditLog.deleteMany({ _id: { $in: ids } });
+  await writeAuditLog(req, { action: "audit-log.bulk-deleted", entityType: "audit-log", summary: `${result.deletedCount} audit entries deleted`, metadata: { ids } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `${result.deletedCount} audit entries deleted`, data: { affected: result.deletedCount } });
 });
 
 export const getNotifications = catchAsync(async (req, res) => {
@@ -818,6 +895,23 @@ export const moderateReview = catchAsync(async (req, res) => {
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `Review ${status}`, data: review });
 });
 
+export const deleteReviewAdmin = catchAsync(async (req, res) => {
+  const review = await Review.findByIdAndDelete(req.params.id);
+  if (!review) throw new AppError(httpStatus.NOT_FOUND, "Review not found");
+  await refreshTradesmanRatings([review.tradesman]);
+  await writeAuditLog(req, { action: "review.deleted", entityType: "review", entityId: review._id, summary: "Review deleted" });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Review deleted", data: { affected: 1 } });
+});
+
+export const bulkDeleteReviews = catchAsync(async (req, res) => {
+  const ids = bulkIds(req.body.ids);
+  const reviews = await Review.find({ _id: { $in: ids } }).select("tradesman");
+  const result = await Review.deleteMany({ _id: { $in: reviews.map((review) => review._id) } });
+  await refreshTradesmanRatings(reviews.map((review) => review.tradesman));
+  await writeAuditLog(req, { action: "review.bulk-deleted", entityType: "review", summary: `${result.deletedCount} reviews deleted`, metadata: { ids } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `${result.deletedCount} reviews deleted`, data: { affected: result.deletedCount } });
+});
+
 export const getAdInquiriesAdmin = catchAsync(async (req, res) => {
   const inquiries = await AdInquiry.find().sort({ createdAt: -1 });
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Advertiser inquiries fetched", data: inquiries });
@@ -829,6 +923,20 @@ export const updateAdInquiry = catchAsync(async (req, res) => {
   if (!inquiry) throw new AppError(httpStatus.NOT_FOUND, "Inquiry not found");
   await writeAuditLog(req, { action: "inquiry.updated", entityType: "inquiry", entityId: inquiry._id, summary: `${inquiry.businessName}: ${inquiry.status}` });
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Inquiry updated", data: inquiry });
+});
+
+export const deleteAdInquiry = catchAsync(async (req, res) => {
+  const inquiry = await AdInquiry.findByIdAndDelete(req.params.id);
+  if (!inquiry) throw new AppError(httpStatus.NOT_FOUND, "Inquiry not found");
+  await writeAuditLog(req, { action: "inquiry.deleted", entityType: "inquiry", entityId: inquiry._id, summary: inquiry.businessName });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Inquiry deleted", data: { affected: 1 } });
+});
+
+export const bulkDeleteAdInquiries = catchAsync(async (req, res) => {
+  const ids = bulkIds(req.body.ids);
+  const result = await AdInquiry.deleteMany({ _id: { $in: ids } });
+  await writeAuditLog(req, { action: "inquiry.bulk-deleted", entityType: "inquiry", summary: `${result.deletedCount} inquiries deleted`, metadata: { ids } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `${result.deletedCount} inquiries deleted`, data: { affected: result.deletedCount } });
 });
 
 const normalizePermissions = (permissions) => {
@@ -969,6 +1077,32 @@ export const revokeAdminInvitation = catchAsync(async (req, res) => {
     message: "Administrator invitation revoked",
     data: invitation,
   });
+});
+
+export const bulkRevokeAdminInvitations = catchAsync(async (req, res) => {
+  const ids = bulkIds(req.body.ids);
+  const result = await AdminInvitation.updateMany(
+    { _id: { $in: ids }, status: { $ne: "accepted" } },
+    { $set: { status: "revoked" } },
+  );
+  await writeAuditLog(req, { action: "administrator.invitation.bulk-revoked", entityType: "admin-invitation", summary: `${result.modifiedCount} invitations revoked`, metadata: { ids } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `${result.modifiedCount} invitations revoked`, data: { affected: result.modifiedCount } });
+});
+
+export const deleteAdmin = catchAsync(async (req, res) => {
+  const admin = await User.findOne({ _id: req.params.adminId, role: "admin" });
+  if (!admin) throw new AppError(httpStatus.NOT_FOUND, "Deletable administrator not found");
+  if (admin._id.equals(req.user._id)) throw new AppError(httpStatus.BAD_REQUEST, "You cannot delete your own account");
+  await admin.deleteOne();
+  await writeAuditLog(req, { action: "administrator.deleted", entityType: "administrator", entityId: admin._id, summary: admin.email });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Administrator deleted", data: { affected: 1 } });
+});
+
+export const bulkDeleteAdmins = catchAsync(async (req, res) => {
+  const ids = bulkIds(req.body.ids);
+  const result = await User.deleteMany({ _id: { $in: ids, $ne: req.user._id }, role: "admin" });
+  await writeAuditLog(req, { action: "administrator.bulk-deleted", entityType: "administrator", summary: `${result.deletedCount} administrators deleted`, metadata: { ids } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `${result.deletedCount} administrators deleted`, data: { affected: result.deletedCount } });
 });
 
 export const updateAdmin = catchAsync(async (req, res) => {

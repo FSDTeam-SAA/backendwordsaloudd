@@ -19,6 +19,18 @@ import {
   ,getCategoriesAdmin
   ,createCategory
   ,updateCategory
+  ,deleteCategory
+  ,bulkDeleteCategories
+  ,bulkDeleteAdvertisements
+  ,deleteAdInquiry
+  ,bulkDeleteAdInquiries
+  ,deleteReviewAdmin
+  ,bulkDeleteReviews
+  ,deleteAuditLog
+  ,bulkDeleteAuditLogs
+  ,deleteAdmin
+  ,bulkDeleteAdmins
+  ,bulkRevokeAdminInvitations
   ,getSettingsAdmin
   ,updateSettingsAdmin
   ,getAuditLogs
@@ -56,29 +68,41 @@ router.get("/export/reviews", requireAdminPermission("exports"), exportReviewsCs
 router.post("/verification/bulk", requireAdminPermission("verification"), bulkUserAction);
 
 router.get("/advertisements", requireAdminPermission("advertisements"), getAdvertisements);
+router.post("/advertisements/bulk-delete", requireAdminPermission("advertisements"), bulkDeleteAdvertisements);
 router.post("/advertisements", requireAdminPermission("advertisements"), upload.single("media"), createAdvertisement);
 router.patch("/advertisements/:id", requireAdminPermission("advertisements"), upload.single("media"), updateAdvertisement);
 router.delete("/advertisements/:id", requireAdminPermission("advertisements"), deleteAdvertisement);
 router.get("/advertisement-inquiries", requireAdminPermission("advertisements"), getAdInquiriesAdmin);
+router.post("/advertisement-inquiries/bulk-delete", requireAdminPermission("advertisements"), bulkDeleteAdInquiries);
 router.patch("/advertisement-inquiries/:id", requireAdminPermission("advertisements"), updateAdInquiry);
+router.delete("/advertisement-inquiries/:id", requireAdminPermission("advertisements"), deleteAdInquiry);
 router.put("/tradesman/:id/verification", requireAdminPermission("verification"), updateVerificationStatus);
 
 router.get("/categories", requireAdminPermission("categories"), getCategoriesAdmin);
+router.post("/categories/bulk-delete", requireAdminPermission("categories"), bulkDeleteCategories);
 router.post("/categories", requireAdminPermission("categories"), createCategory);
 router.patch("/categories/:id", requireAdminPermission("categories"), updateCategory);
+router.delete("/categories/:id", requireAdminPermission("categories"), deleteCategory);
 
 router.get("/platform-settings", requireAdminPermission("settings"), getSettingsAdmin);
 router.patch("/platform-settings", requireAdminPermission("settings"), updateSettingsAdmin);
 router.get("/audit-logs", requireAdminPermission("audit"), getAuditLogs);
+router.post("/audit-logs/bulk-delete", requireAdminPermission("audit"), bulkDeleteAuditLogs);
+router.delete("/audit-logs/:id", requireAdminPermission("audit"), deleteAuditLog);
 router.get("/notifications", getNotifications);
 router.get("/reviews", requireAdminPermission("reviews"), getReviewsAdmin);
+router.post("/reviews/bulk-delete", requireAdminPermission("reviews"), bulkDeleteReviews);
 router.patch("/reviews/:id", requireAdminPermission("reviews"), moderateReview);
+router.delete("/reviews/:id", requireAdminPermission("reviews"), deleteReviewAdmin);
 
 router.get("/administrators", restrictTo("super-admin"), getAdminList);
+router.post("/administrators/bulk-delete", restrictTo("super-admin"), bulkDeleteAdmins);
 router.post("/administrators", restrictTo("super-admin"), createAdmin);
 router.patch("/administrators/:adminId", restrictTo("super-admin"), updateAdmin);
+router.delete("/administrators/:adminId", restrictTo("super-admin"), deleteAdmin);
 router.get("/administrator-invitations", restrictTo("super-admin"), getAdminInvitations);
 router.post("/administrator-invitations/:invitationId/resend", restrictTo("super-admin"), resendAdminInvitation);
+router.post("/administrator-invitations/bulk-delete", restrictTo("super-admin"), bulkRevokeAdminInvitations);
 router.delete("/administrator-invitations/:invitationId", restrictTo("super-admin"), revokeAdminInvitation);
 
 export default router;
