@@ -10,6 +10,24 @@ import { rateLimit } from "./middleware/rateLimit.middleware.js";
 import AppError from "./errors/AppError.js";
 
 const app = express();
+let mongoConnectionPromise = null;
+
+const connectDatabase = async () => {
+  if (mongoose.connection.readyState === 1) return;
+
+  const mongoUrl = process.env.MONGO_DB_URL;
+  if (!mongoUrl) throw new Error("MONGO_DB_URL is not configured");
+
+  if (!mongoConnectionPromise) {
+    mongoConnectionPromise = mongoose.connect(mongoUrl);
+  }
+
+  try {
+    await mongoConnectionPromise;
+  } finally {
+    mongoConnectionPromise = null;
+  }
+};
 
 app.set("trust proxy", true);
 
@@ -61,6 +79,14 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use("/api/v1", async (req, res, next) => {
+  try {
+    await connectDatabase();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 app.use("/api/v1/auth", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
 
 app.use("/public", express.static("public"));
@@ -77,14 +103,18 @@ app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, async () => {
-  console.log(`Server is running on port ${PORT}`);
+if (!process.env.VERCEL) {
+  connectDatabase()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+      });
+      console.log("MongoDB connected");
+    })
+    .catch((err) => {
+      console.error("MongoDB connection error:", err);
+      process.exitCode = 1;
+    });
+}
 
-  try {
-    await mongoose.connect(process.env.MONGO_DB_URL);
-    console.log("MongoDB connected");
-  } catch (err) {
-    console.error("MongoDB connection error:", err);
-    process.exit(1);
-  }
-});
+export default app;
