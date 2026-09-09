@@ -202,18 +202,25 @@ export const getMyProfile = catchAsync(async (req, res) => {
 export const getCategories = catchAsync(async (req, res) => {
   await ensureDefaultCategories();
   const counts = await TradesmanProfile.aggregate([
-    { $group: { _id: "$mainSkill", count: { $sum: 1 } } },
+    {
+      $group: {
+        _id: "$mainSkill",
+        count: { $sum: 1 },
+        isVerified: { $max: { $eq: ["$isVip", true] } },
+      },
+    },
   ]);
 
   const countMap = counts.reduce((acc, c) => {
-    acc[c._id] = c.count;
+    acc[c._id] = c;
     return acc;
   }, {});
 
   const categoryRecords = await Category.find({ isActive: true }).sort({ order: 1, name: 1 });
   const categories = categoryRecords.map((category) => ({
     skill: category.name,
-    listedCount: countMap[category.name] || 0,
+    listedCount: countMap[category.name]?.count || 0,
+    isVerified: countMap[category.name]?.isVerified === true,
     icon: category.icon,
     isNew: categoryJson(category).isNew,
     newUntil: category.newUntil,
