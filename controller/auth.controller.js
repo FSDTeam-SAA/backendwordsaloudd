@@ -752,7 +752,7 @@ export const forgetPassword = catchAsync(async (req, res) => {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  const otp = generateOTP();
+  const otp = generateOTP(6);
 
   user.setResetPasswordOTP(otp);
   await user.save();

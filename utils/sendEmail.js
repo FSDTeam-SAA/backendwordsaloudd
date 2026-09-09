@@ -1,10 +1,38 @@
+import nodemailer from "nodemailer";
+
+const sendWithSmtp = async ({ to, subject, html }) => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+  if (!host || !user || !pass) return null;
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+
+  return transporter.sendMail({
+    from: process.env.SMTP_FROM || `Aturservicett <${user}>`,
+    to,
+    subject: subject || "Aturservicett",
+    html: html || "",
+  });
+};
+
 export const sendEmail = async (to, subject, html) => {
   const apiKey = process.env.RESEND_EMAIL_API_KEY;
   const from = process.env.RESEND_EMAIL_FROM || "Aturservicett <support@aturservicett.com>";
 
   if (!apiKey) {
-    console.log(`[sendEmail skipped - no Resend API key] To: ${to} | ${subject}`);
-    return;
+    const smtpResult = await sendWithSmtp({ to, subject, html });
+    if (smtpResult) return smtpResult;
+
+    console.log(`[sendEmail skipped - no Resend or SMTP credentials] To: ${to} | ${subject}`);
+    return null;
   }
 
   const response = await fetch("https://api.resend.com/emails", {
