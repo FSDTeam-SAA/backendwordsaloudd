@@ -10,7 +10,8 @@
     "test": "node test/adminHelpers.test.js",
     "seed:admin": "node seed/createAdmin.js",
     "migrate:verification": "node scripts/backfillTradesmanProfiles.js",
-    "migrate:categories": "node scripts/normalizeCategories.js"
+    "migrate:categories": "node scripts/normalizeCategories.js",
+    "migrate:vip-skill": "node scripts/backfillVipBySkill.js"
   },
   "keywords": [],
   "author": "",

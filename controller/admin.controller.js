@@ -160,7 +160,9 @@ export const getUserList = catchAsync(async (req, res) => {
   const normalizedSearch = String(search).trim();
   if (normalizedSearch) {
     const regex = new RegExp(escapeRegex(normalizedSearch), "i");
-    const skillProfiles = await TradesmanProfile.find({ mainSkill: regex }).select("user");
+    const skillProfiles = await TradesmanProfile.find({
+      $or: [{ mainSkill: regex }, { extraSkills: regex }, { vipBySkill: regex }],
+    }).select("user");
     const searchConditions = [
       { firstName: regex },
       { lastName: regex },
@@ -266,6 +268,7 @@ export const addVipMember = catchAsync(async (req, res) => {
     rateAmount,
     rateUnit,
     mainSkill,
+    vipBySkill,
   } = req.body;
 
   let user;
@@ -304,17 +307,28 @@ export const addVipMember = catchAsync(async (req, res) => {
   }
 
   const activeCategories = await getActiveCategoryNames();
-  const selectedSkill = mainSkill || profile.mainSkill;
-  if (!selectedSkill || !activeCategories.includes(selectedSkill)) {
-    throw new AppError(httpStatus.BAD_REQUEST, "A valid active main skill is required");
+  const selectedSkill = String(vipBySkill || "").trim();
+  const profileSkills = [...new Set([profile.mainSkill, ...(profile.extraSkills || [])].filter(Boolean))];
+  if (!selectedSkill) {
+    throw new AppError(httpStatus.BAD_REQUEST, "vipBySkill is required");
+  }
+  if (!activeCategories.includes(selectedSkill) || !profileSkills.includes(selectedSkill)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "VIP skill must be an active main or extra skill for this tradesman");
   }
   const settings = await getPlatformSettings();
-  const existingVipCount = await TradesmanProfile.countDocuments({ _id: { $ne: profile._id }, mainSkill: selectedSkill, isVip: true });
-  if (!profile.isVip && existingVipCount >= settings.vipSlotsPerCategory) {
+  const existingVipCount = await TradesmanProfile.countDocuments({
+    _id: { $ne: profile._id },
+    isVip: true,
+    $or: [
+      { vipBySkill: selectedSkill },
+      { vipBySkill: { $in: [null, ""] }, mainSkill: selectedSkill },
+    ],
+  });
+  if (existingVipCount >= settings.vipSlotsPerCategory) {
     throw new AppError(httpStatus.BAD_REQUEST, `The VIP limit for ${selectedSkill} has been reached`);
   }
 
-  if (mainSkill) profile.mainSkill = mainSkill;
+  profile.vipBySkill = selectedSkill;
   if (homeArea) profile.homeArea = homeArea;
   if (travelRange) profile.travelRange = travelRange;
   if (pitch !== undefined) profile.pitch = pitch;
@@ -331,6 +345,7 @@ export const addVipMember = catchAsync(async (req, res) => {
     entityType: "tradesman",
     entityId: profile._id,
     summary: `VIP status granted to ${user.email}`,
+    metadata: { vipBySkill: selectedSkill },
   });
 
   sendResponse(res, {
@@ -648,10 +663,10 @@ export const exportUsersCsv = catchAsync(async (req, res) => {
   const users = await User.find(filter).sort({ createdAt: -1 }).lean();
   const profiles = await TradesmanProfile.find({ user: { $in: users.map((user) => user._id) } }).lean();
   const profileMap = new Map(profiles.map((profile) => [String(profile.user), profile]));
-  const headers = ["User ID", "First Name", "Last Name", "Email", "Phone", "Role", "Area", "Blocked", "Email Verified", "Joined", "Main Skill", "Verification", "VIP", "Live", "Rating"];
+  const headers = ["User ID", "First Name", "Last Name", "Email", "Phone", "Role", "Area", "Blocked", "Email Verified", "Joined", "Main Skill", "VIP Skill", "Verification", "VIP", "Live", "Rating"];
   const rows = users.map((user) => {
     const profile = profileMap.get(String(user._id));
-    return [user._id, user.firstName, user.lastName, user.email, user.phoneNumber, user.role, user.area, user.isBlocked, user.isEmailVerified, user.createdAt?.toISOString(), profile?.mainSkill, profile?.verificationStatus, profile?.isVip, profile?.isLive, profile?.ratingAverage].map(csvCell).join(",");
+    return [user._id, user.firstName, user.lastName, user.email, user.phoneNumber, user.role, user.area, user.isBlocked, user.isEmailVerified, user.createdAt?.toISOString(), profile?.mainSkill, profile?.vipBySkill || (profile?.isVip ? profile?.mainSkill : ""), profile?.verificationStatus, profile?.isVip, profile?.isLive, profile?.ratingAverage].map(csvCell).join(",");
   });
   await writeAuditLog(req, { action: "users.exported", entityType: "user", summary: `${users.length} users exported`, metadata: { type, search } });
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -761,6 +776,7 @@ export const updateCategory = catchAsync(async (req, res) => {
     await Promise.all([
       TradesmanProfile.updateMany({ mainSkill: previousName }, { $set: { mainSkill: category.name } }),
       TradesmanProfile.updateMany({ extraSkills: previousName }, { $set: { "extraSkills.$[skill]": category.name } }, { arrayFilters: [{ skill: previousName }] }),
+      TradesmanProfile.updateMany({ vipBySkill: previousName }, { $set: { vipBySkill: category.name } }),
       Advertisement.updateMany({ categories: previousName }, { $set: { "categories.$[category]": category.name } }, { arrayFilters: [{ category: previousName }] }),
     ]);
   }
@@ -774,7 +790,11 @@ const removeCategories = async (ids) => {
   const total = await Category.countDocuments();
   if (categories.length >= total) throw new AppError(httpStatus.BAD_REQUEST, "At least one category must remain");
   const names = categories.map((category) => category.name);
-  const inUse = await TradesmanProfile.distinct("mainSkill", { mainSkill: { $in: names } });
+  const [mainSkillsInUse, vipSkillsInUse] = await Promise.all([
+    TradesmanProfile.distinct("mainSkill", { mainSkill: { $in: names } }),
+    TradesmanProfile.distinct("vipBySkill", { isVip: true, vipBySkill: { $in: names } }),
+  ]);
+  const inUse = [...new Set([...mainSkillsInUse, ...vipSkillsInUse])];
   if (inUse.length) throw new AppError(httpStatus.CONFLICT, `Deactivate categories used by tradesmen instead: ${inUse.join(", ")}`);
   await Promise.all([
     Category.deleteMany({ _id: { $in: categories.map((category) => category._id) } }),

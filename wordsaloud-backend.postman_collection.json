@@ -407,7 +407,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"email\": \"jane@example.com\",\n  \"phoneNumber\": \"01700000001\",\n  \"homeArea\": \"Gulshan\",\n  \"travelRange\": 15,\n  \"pitch\": \"Skilled electrician\",\n  \"rateAmount\": 600,\n  \"rateUnit\": \"hour\",\n  \"mainSkill\": \"Electrician\"\n}"
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"email\": \"jane@example.com\",\n  \"phoneNumber\": \"01700000001\",\n  \"homeArea\": \"Gulshan\",\n  \"travelRange\": 15,\n  \"pitch\": \"Skilled electrician\",\n  \"rateAmount\": 600,\n  \"rateUnit\": \"hour\",\n  \"mainSkill\": \"Electrician\",\n  \"vipBySkill\": \"Electrician\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/admin/users/vip", "host": ["{{baseUrl}}"], "path": ["admin", "users", "vip"] }
           }

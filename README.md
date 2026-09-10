@@ -161,7 +161,7 @@ the `super-admin` role. Public registration continues to allow only `client` and
 | GET | `/users?type=all\|client\|tradesman\|vip&page=&limit=` | "User list" tabs |
 | PATCH | `/users/:userId/toggle-block` | green/red dot action |
 | DELETE | `/users/:userId` | trash icon action |
-| POST | `/users/vip` | "Add VIP Member" modal |
+| POST | `/users/vip` | "Add VIP Member" modal; `vipBySkill` must match the tradesman's main or extra skills |
 | GET | `/advertisements` | admin list |
 | GET | `/advertisements/active` | **public** — active ads only, for sponsored slots in the app |
 | POST | `/advertisements` | multipart campaign fields + required JPG/PNG/MP4 media |
@@ -188,8 +188,9 @@ the code should feel familiar.
 
 A few product decisions were inferred from the screens and may need
 adjusting to match your exact intent:
-- "VIP" is modeled as a flag on a tradesman's profile (`isVip`), surfaced via
-  the User list's VIP tab and set through "Add VIP Member".
+- "VIP" is modeled as a flag on a tradesman's profile (`isVip`) plus the
+  selected category (`vipBySkill`), surfaced via the User list's VIP tab and
+  set through "Add VIP Member".
 - The dashboard's occupancy/registration charts are computed from real
   signup data rather than hard-coded, since there's no separate "booking"
   entity in the flow shown.

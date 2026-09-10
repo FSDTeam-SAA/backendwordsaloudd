@@ -25,6 +25,12 @@ const tradesmanProfileSchema = new Schema(
       default: [],
     },
 
+    vipBySkill: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     homeArea: {
       type: String,
       trim: true,
@@ -118,6 +124,7 @@ contactChangeRequest: {
 );
 
 tradesmanProfileSchema.index({ mainSkill: 1 });
+tradesmanProfileSchema.index({ isVip: 1, vipBySkill: 1 });
 tradesmanProfileSchema.index({ homeArea: 1 });
 tradesmanProfileSchema.index({ ratingAverage: -1 });
 

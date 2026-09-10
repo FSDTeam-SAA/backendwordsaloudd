@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { categoryJson, normalizeCategoryIcon } from "../utils/adminHelpers.js";
 import { hashInvitationToken } from "../utils/adminInvitation.js";
+import TradesmanProfile from "../model/tradesmanProfile.model.js";
 
 test("category icons accept emoji and HTTPS URLs", () => {
   assert.equal(normalizeCategoryIcon(" 🔧 "), "🔧");
@@ -25,4 +26,18 @@ test("administrator invitation tokens are stored as deterministic hashes", () =>
   assert.equal(hashInvitationToken(token), hashInvitationToken(token));
   assert.notEqual(hashInvitationToken(token), token);
   assert.notEqual(hashInvitationToken(token), hashInvitationToken("b".repeat(64)));
+});
+
+test("tradesman profiles expose a dedicated VIP skill", () => {
+  const profile = new TradesmanProfile({
+    user: "507f1f77bcf86cd799439011",
+    mainSkill: "Plumber",
+    extraSkills: ["Computer Tech"],
+    vipBySkill: "Computer Tech",
+    isVip: true,
+  });
+
+  assert.equal(profile.mainSkill, "Plumber");
+  assert.deepEqual(profile.extraSkills, ["Computer Tech"]);
+  assert.equal(profile.vipBySkill, "Computer Tech");
 });

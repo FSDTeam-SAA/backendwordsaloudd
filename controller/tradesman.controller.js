@@ -34,8 +34,13 @@ export const setSkills = catchAsync(async (req, res) => {
   });
 
   const profile = await getOrCreateProfile(req.user._id);
+  const assignedVipSkill = profile.isVip ? (profile.vipBySkill || profile.mainSkill) : "";
+  if (assignedVipSkill && ![mainSkill, ...extras].includes(assignedVipSkill)) {
+    throw new AppError(httpStatus.BAD_REQUEST, `Your assigned VIP skill (${assignedVipSkill}) cannot be removed`);
+  }
   profile.mainSkill = mainSkill;
   profile.extraSkills = extras;
+  if (assignedVipSkill && !profile.vipBySkill) profile.vipBySkill = assignedVipSkill;
   await profile.save();
 
   sendResponse(res, {
@@ -201,26 +206,42 @@ export const getMyProfile = catchAsync(async (req, res) => {
 
 export const getCategories = catchAsync(async (req, res) => {
   await ensureDefaultCategories();
-  const counts = await TradesmanProfile.aggregate([
-    {
-      $group: {
-        _id: "$mainSkill",
-        count: { $sum: 1 },
-        isVerified: { $max: { $eq: ["$isVip", true] } },
+  const [counts, vipSkills] = await Promise.all([
+    TradesmanProfile.aggregate([
+      { $project: { skills: { $setUnion: [["$mainSkill"], { $ifNull: ["$extraSkills", []] }] } } },
+      { $unwind: "$skills" },
+      { $match: { skills: { $nin: [null, ""] } } },
+      { $group: { _id: "$skills", count: { $sum: 1 } } },
+    ]),
+    TradesmanProfile.aggregate([
+      { $match: { isVip: true } },
+      {
+        $project: {
+          skill: {
+            $cond: [
+              { $ne: [{ $ifNull: ["$vipBySkill", ""] }, ""] },
+              "$vipBySkill",
+              "$mainSkill",
+            ],
+          },
+        },
       },
-    },
+      { $match: { skill: { $nin: [null, ""] } } },
+      { $group: { _id: "$skill" } },
+    ]),
   ]);
 
   const countMap = counts.reduce((acc, c) => {
     acc[c._id] = c;
     return acc;
   }, {});
+  const vipSkillSet = new Set(vipSkills.map(({ _id }) => _id));
 
   const categoryRecords = await Category.find({ isActive: true }).sort({ order: 1, name: 1 });
   const categories = categoryRecords.map((category) => ({
     skill: category.name,
     listedCount: countMap[category.name]?.count || 0,
-    isVerified: countMap[category.name]?.isVerified === true,
+    isVerified: vipSkillSet.has(category.name),
     icon: category.icon,
     isNew: categoryJson(category).isNew,
     newUntil: category.newUntil,
@@ -246,13 +267,8 @@ export const browseTradesmen = catchAsync(async (req, res) => {
 
   // every tradesman is listed - verification only drives the badge, not visibility
   const filter = {};
-  if (skill) filter.mainSkill = skill;
+  if (skill) filter.$or = [{ mainSkill: skill }, { extraSkills: skill }];
   if (area) filter.homeArea = new RegExp(area, "i");
-
-  let query = TradesmanProfile.find(filter).populate(
-    "user",
-    "firstName lastName profileImage area"
-  );
 
   if (search) {
     const users = await User.find({
@@ -262,10 +278,6 @@ export const browseTradesmen = catchAsync(async (req, res) => {
       ],
     }).select("_id");
     filter.user = { $in: users.map((u) => u._id) };
-    query = TradesmanProfile.find(filter).populate(
-      "user",
-      "firstName lastName profileImage area"
-    );
   }
 
   const sortMap = {
@@ -277,12 +289,55 @@ export const browseTradesmen = catchAsync(async (req, res) => {
 
   const skip = (Number(page) - 1) * Number(limit);
 
-  const [items, total] = await Promise.all([
-    query
-      .clone()
+  let itemsPromise;
+  if (skill && sort === "rating") {
+    itemsPromise = TradesmanProfile.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          _vipPriority: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isVip", true] },
+                  {
+                    $eq: [
+                      {
+                        $cond: [
+                          { $ne: [{ $ifNull: ["$vipBySkill", ""] }, ""] },
+                          "$vipBySkill",
+                          "$mainSkill",
+                        ],
+                      },
+                      skill,
+                    ],
+                  },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+      { $sort: { _vipPriority: -1, ratingAverage: -1, _id: 1 } },
+      { $skip: skip },
+      { $limit: Number(limit) },
+      { $project: { _vipPriority: 0 } },
+    ]).then((profiles) => TradesmanProfile.populate(profiles, {
+      path: "user",
+      select: "firstName lastName profileImage area",
+    }));
+  } else {
+    itemsPromise = TradesmanProfile.find(filter)
+      .populate("user", "firstName lastName profileImage area")
       .sort(sortMap[sort] || sortMap.rating)
       .skip(skip)
-      .limit(Number(limit)),
+      .limit(Number(limit));
+  }
+
+  const [items, total] = await Promise.all([
+    itemsPromise,
     TradesmanProfile.countDocuments(filter),
   ]);
 
@@ -507,6 +562,7 @@ export const updateMyProfile = catchAsync(async (req, res) => {
 
   const profile = await getOrCreateProfile(req.user._id);
   const activeSkills = await getActiveCategoryNames();
+  const assignedVipSkill = profile.isVip ? (profile.vipBySkill || profile.mainSkill) : "";
 
   if (mainSkill !== undefined) {
     if (!activeSkills.includes(mainSkill)) {
@@ -524,6 +580,11 @@ export const updateMyProfile = catchAsync(async (req, res) => {
     });
     profile.extraSkills = extras;
   }
+
+  if (assignedVipSkill && ![profile.mainSkill, ...(profile.extraSkills || [])].includes(assignedVipSkill)) {
+    throw new AppError(httpStatus.BAD_REQUEST, `Your assigned VIP skill (${assignedVipSkill}) cannot be removed`);
+  }
+  if (assignedVipSkill && !profile.vipBySkill) profile.vipBySkill = assignedVipSkill;
 
   if (homeArea !== undefined) profile.homeArea = homeArea;
   if (travelRange !== undefined) {
