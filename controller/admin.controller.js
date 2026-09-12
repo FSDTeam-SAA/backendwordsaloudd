@@ -161,7 +161,10 @@ export const getUserList = catchAsync(async (req, res) => {
 
   let profileUserIds = null;
   if (type === "vip") {
-    const vipProfiles = await TradesmanProfile.find({ isVip: true }).select("user");
+    const vipProfiles = await TradesmanProfile.find({
+      isVip: true,
+      vipBySkill: { $nin: [null, ""] },
+    }).select("user");
     profileUserIds = vipProfiles.map((profile) => profile.user);
   }
   const normalizedSearch = String(search).trim();
@@ -354,10 +357,7 @@ export const addVipMember = catchAsync(async (req, res) => {
   const existingVipCount = await TradesmanProfile.countDocuments({
     _id: { $ne: profile._id },
     isVip: true,
-    $or: [
-      { vipBySkill: selectedSkill },
-      { vipBySkill: { $in: [null, ""] }, mainSkill: selectedSkill },
-    ],
+    vipBySkill: selectedSkill,
   });
   if (existingVipCount >= settings.vipSlotsPerCategory) {
     throw new AppError(httpStatus.BAD_REQUEST, `The VIP limit for ${selectedSkill} has been reached`);
@@ -701,7 +701,7 @@ export const exportUsersCsv = catchAsync(async (req, res) => {
   const headers = ["User ID", "First Name", "Last Name", "Email", "Phone", "Role", "Area", "Blocked", "Email Verified", "Joined", "Main Skill", "VIP Skill", "Verification", "VIP", "Live", "Rating"];
   const rows = users.map((user) => {
     const profile = profileMap.get(String(user._id));
-    return [user._id, user.firstName, user.lastName, user.email, user.phoneNumber, user.role, user.area, user.isBlocked, user.isEmailVerified, user.createdAt?.toISOString(), profile?.mainSkill, profile?.vipBySkill || (profile?.isVip ? profile?.mainSkill : ""), profile?.verificationStatus, profile?.isVip, profile?.isLive, profile?.ratingAverage].map(csvCell).join(",");
+    return [user._id, user.firstName, user.lastName, user.email, user.phoneNumber, user.role, user.area, user.isBlocked, user.isEmailVerified, user.createdAt?.toISOString(), profile?.mainSkill, profile?.vipBySkill || "", profile?.verificationStatus, profile?.isVip, profile?.isLive, profile?.ratingAverage].map(csvCell).join(",");
   });
   await writeAuditLog(req, { action: "users.exported", entityType: "user", summary: `${users.length} users exported`, metadata: { type, search } });
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -738,13 +738,18 @@ export const getCategoriesAdmin = catchAsync(async (req, res) => {
   const paginated = req.query.page !== undefined || req.query.limit !== undefined;
   const page = clamp(req.query.page, 1, 100000, 1);
   const limit = clamp(req.query.limit, 1, 100, 10);
-  const [categories, counts, total] = await Promise.all([
+  const [categories, counts, vipCounts, total] = await Promise.all([
     Category.find().sort({ order: 1, name: 1 }).skip(paginated ? (page - 1) * limit : 0).limit(paginated ? limit : 0),
     TradesmanProfile.aggregate([{ $group: { _id: "$mainSkill", count: { $sum: 1 } } }]),
+    TradesmanProfile.aggregate([
+      { $match: { isVip: true, vipBySkill: { $nin: [null, ""] } } },
+      { $group: { _id: "$vipBySkill", count: { $sum: 1 } } },
+    ]),
     Category.countDocuments(),
   ]);
   const countMap = new Map(counts.map((item) => [item._id, item.count]));
-  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Categories fetched", data: categories.map((category) => ({ ...categoryJson(category), tradesmanCount: countMap.get(category.name) || 0 })), ...(paginated ? { meta: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) } } : {}) });
+  const vipCountMap = new Map(vipCounts.map((item) => [item._id, item.count]));
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Categories fetched", data: categories.map((category) => ({ ...categoryJson(category), tradesmanCount: countMap.get(category.name) || 0, vipCount: vipCountMap.get(category.name) || 0 })), ...(paginated ? { meta: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) } } : {}) });
 });
 
 export const createCategory = catchAsync(async (req, res) => {

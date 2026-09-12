@@ -121,8 +121,8 @@ Protected routes require `Authorization: Bearer <accessToken>`.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/categories` | public | Home screen grid, e.g. "Plumber — 73 Listed" |
-| GET | `/?skill=&search=&area=&sort=rating\|newest\|priceLow\|priceHigh&page=&limit=` | public | "Plumbers — 12 plumber Near You / sorted by Rating" |
+| GET | `/categories` | public | Home grid; `listedCount`/`vipCount` are category VIPs and `tradesmanCount` is the total skill listing count |
+| GET | `/?skill=&search=&area=&sort=rating\|newest\|priceLow\|priceHigh&page=&limit=` | public | Category browse; `isVip` is true only when `vipBySkill` matches the requested skill |
 | GET | `/:id` | public | Tradesman detail page (about + reviews) |
 | GET | `/me/profile` | tradesman | Own profile |
 | POST | `/onboarding/skills` | tradesman | `{ mainSkill, extraSkills: [] }` — Step 1 "What can you do?" |

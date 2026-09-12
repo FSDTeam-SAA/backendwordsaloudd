@@ -29,6 +29,7 @@ const tradesmanProfileSchema = new Schema(
       type: String,
       trim: true,
       default: "",
+      required: [function requireVipCategory() { return this.isVip === true; }, "VIP category is required"],
     },
 
     homeArea: {

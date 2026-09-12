@@ -41,3 +41,13 @@ test("tradesman profiles expose a dedicated VIP skill", () => {
   assert.deepEqual(profile.extraSkills, ["Computer Tech"]);
   assert.equal(profile.vipBySkill, "Computer Tech");
 });
+
+test("VIP profiles cannot be saved without a category", () => {
+  const profile = new TradesmanProfile({
+    user: "507f1f77bcf86cd799439012",
+    mainSkill: "Plumber",
+    isVip: true,
+  });
+
+  assert.equal(profile.validateSync()?.errors.vipBySkill?.message, "VIP category is required");
+});
