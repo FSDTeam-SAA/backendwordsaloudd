@@ -45,16 +45,15 @@ const configuredOrigins = [
 ]
   .filter(Boolean)
   .join(",");
+const defaultAdminOrigin = process.env.NODE_ENV === "production"
+  ? "https://admin-dashboard-wordsaloud-sigma.vercel.app"
+  : "http://localhost:3000";
 const allowedOrigins = String(
-  configuredOrigins || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3000"),
+  configuredOrigins || defaultAdminOrigin,
 )
   .split(",")
   .map((origin) => normalizeOrigin(origin.trim()))
   .filter(Boolean);
-
-if (process.env.NODE_ENV === "production" && !allowedOrigins.length) {
-  console.warn("No production admin origin is configured. Set CORS_ORIGINS or ADMIN_DASHBOARD_URL.");
-}
 
 app.use(
   cors({
