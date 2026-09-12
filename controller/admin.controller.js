@@ -23,6 +23,7 @@ import {
   writeAuditLog,
 } from "../utils/adminHelpers.js";
 import { sendAdminInvitation } from "../utils/adminInvitation.js";
+import { queryVerificationQueue } from "../utils/verificationQueue.js";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -139,6 +140,21 @@ export const getUserList = catchAsync(async (req, res) => {
   const { type = "all", search = "", verificationStatus = "" } = req.query;
   const page = clamp(req.query.page, 1, 100000, 1);
   const limit = clamp(req.query.limit, 1, 100, 20);
+  if (["pending", "verified", "rejected"].includes(verificationStatus)) {
+    const result = await queryVerificationQueue({ status: verificationStatus, search, page, limit });
+    return sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Verification queue fetched",
+      data: result.users,
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      },
+    });
+  }
   const userFilter = { role: { $in: ["client", "tradesman"] } };
   if (type === "client") userFilter.role = "client";
   if (type === "tradesman") userFilter.role = "tradesman";
@@ -148,15 +164,6 @@ export const getUserList = catchAsync(async (req, res) => {
     const vipProfiles = await TradesmanProfile.find({ isVip: true }).select("user");
     profileUserIds = vipProfiles.map((profile) => profile.user);
   }
-  if (["pending", "verified", "rejected"].includes(verificationStatus)) {
-    const statusProfiles = await TradesmanProfile.find({ verificationStatus }).select("user");
-    const statusIds = statusProfiles.map((profile) => String(profile.user));
-    profileUserIds = profileUserIds
-      ? profileUserIds.filter((id) => statusIds.includes(String(id)))
-      : statusProfiles.map((profile) => profile.user);
-    userFilter.role = "tradesman";
-  }
-
   const normalizedSearch = String(search).trim();
   if (normalizedSearch) {
     const regex = new RegExp(escapeRegex(normalizedSearch), "i");
@@ -204,6 +211,34 @@ export const getUserList = catchAsync(async (req, res) => {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+    },
+  });
+});
+
+export const getVerificationQueue = catchAsync(async (req, res) => {
+  const status = String(req.query.status || "pending");
+  if (!["pending", "verified", "rejected"].includes(status)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "status must be 'pending', 'verified' or 'rejected'");
+  }
+  const page = clamp(req.query.page, 1, 100000, 1);
+  const limit = clamp(req.query.limit, 1, 100, 20);
+  const result = await queryVerificationQueue({
+    status,
+    search: req.query.search,
+    page,
+    limit,
+  });
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Verification queue fetched",
+    data: result.users,
+    meta: {
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
     },
   });
 });
@@ -867,23 +902,22 @@ export const bulkDeleteAuditLogs = catchAsync(async (req, res) => {
 });
 
 export const getNotifications = catchAsync(async (req, res) => {
-  const [pendingProfiles, pendingVerificationCount, newInquiries, pendingReviews] = await Promise.all([
-    TradesmanProfile.find({ verificationStatus: "pending" }).sort({ updatedAt: -1 }).limit(5).populate("user", "firstName lastName email"),
-    TradesmanProfile.countDocuments({ verificationStatus: "pending" }),
+  const [verificationQueue, newInquiries, pendingReviews] = await Promise.all([
+    queryVerificationQueue({ status: "pending", page: 1, limit: 5 }),
     AdInquiry.countDocuments({ status: "new" }),
     Review.countDocuments({ moderationStatus: "pending" }),
   ]);
-  const items = pendingProfiles.map((profile) => ({
-    id: String(profile._id),
+  const items = verificationQueue.users.map((user) => ({
+    id: String(user.tradesmanProfile._id),
     type: "verification",
     title: "Tradesman awaiting verification",
-    message: profile.user?.name || `${profile.user?.firstName || ""} ${profile.user?.lastName || ""}`.trim() || profile.user?.email || "Tradesman",
-    createdAt: profile.updatedAt,
+    message: user.name || user.email || "Tradesman",
+    createdAt: user.tradesmanProfile.verification?.submittedAt || user.tradesmanProfile.updatedAt,
     href: "/verification",
   }));
   if (pendingReviews) items.push({ id: "pending-reviews", type: "review", title: "Reviews awaiting moderation", message: `${pendingReviews} pending review${pendingReviews === 1 ? "" : "s"}`, createdAt: new Date(), href: "/reviews" });
   if (newInquiries) items.push({ id: "new-inquiries", type: "inquiry", title: "New advertiser inquiries", message: `${newInquiries} new advertiser inquir${newInquiries === 1 ? "y" : "ies"}`, createdAt: new Date(), href: "/advertisements" });
-  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Notifications fetched", data: { unreadCount: pendingVerificationCount + newInquiries + pendingReviews, counts: { verification: pendingVerificationCount, inquiries: newInquiries, reviews: pendingReviews }, items } });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Notifications fetched", data: { unreadCount: verificationQueue.total + newInquiries + pendingReviews, counts: { verification: verificationQueue.total, inquiries: newInquiries, reviews: pendingReviews }, items } });
 });
 
 export const getReviewsAdmin = catchAsync(async (req, res) => {

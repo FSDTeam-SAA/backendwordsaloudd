@@ -125,6 +125,7 @@ contactChangeRequest: {
 
 tradesmanProfileSchema.index({ mainSkill: 1 });
 tradesmanProfileSchema.index({ isVip: 1, vipBySkill: 1 });
+tradesmanProfileSchema.index({ verificationStatus: 1, "verification.submittedAt": -1 });
 tradesmanProfileSchema.index({ homeArea: 1 });
 tradesmanProfileSchema.index({ ratingAverage: -1 });
 

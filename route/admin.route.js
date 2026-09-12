@@ -35,6 +35,7 @@ import {
   ,updateSettingsAdmin
   ,getAuditLogs
   ,getNotifications
+  ,getVerificationQueue
   ,getReviewsAdmin
   ,moderateReview
   ,getAdInquiriesAdmin
@@ -66,6 +67,7 @@ router.post("/users/vip", requireAdminPermission("users"), addVipMember);
 router.get("/export/users", requireAdminPermission("exports"), exportUsersCsv);
 router.get("/export/reviews", requireAdminPermission("exports"), exportReviewsCsv);
 router.post("/verification/bulk", requireAdminPermission("verification"), bulkUserAction);
+router.get("/verifications", requireAdminPermission("verification"), getVerificationQueue);
 
 router.get("/advertisements", requireAdminPermission("advertisements"), getAdvertisements);
 router.post("/advertisements/bulk-delete", requireAdminPermission("advertisements"), bulkDeleteAdvertisements);

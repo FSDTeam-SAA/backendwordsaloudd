@@ -70,8 +70,8 @@ npm run migrate:categories
 npm run migrate:vip-skill
 ```
 
-The first command creates pending profiles for existing tradesmen and repairs
-missing verification statuses. The second normalizes category ordering and
+The first command creates pending profiles for existing tradesmen, repairs
+missing verification data, and removes orphan profiles/reviews. The second normalizes category ordering and
 replaces legacy invalid icon values with configured category emoji where
 possible. The third assigns each legacy VIP profile to its existing main-skill
 category. All three scripts are safe to rerun.
@@ -161,6 +161,7 @@ the `super-admin` role. Public registration continues to allow only `client` and
 |---|---|---|
 | GET | `/dashboard` | Totals + weekly occupancy + yearly registration chart data |
 | GET | `/users?type=all\|client\|tradesman\|vip&page=&limit=` | "User list" tabs |
+| GET | `/verifications?status=pending\|verified\|rejected&page=&limit=` | Verification Queue; requires `verification` permission |
 | PATCH | `/users/:userId/toggle-block` | green/red dot action |
 | DELETE | `/users/:userId` | trash icon action |
 | POST | `/users/vip` | "Add VIP Member" modal; `vipBySkill` must match the tradesman's main or extra skills |

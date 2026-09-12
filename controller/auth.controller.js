@@ -301,10 +301,10 @@ export const register = catchAsync(async (req, res) => {
   user.isProfileComplete = true;
   user.clearOTP();
 
-  await user.save();
-
+  // Create the queue record before completing the user so a successful
+  // tradesman registration can never be left without a verification profile.
   if (user.role === "tradesman") {
-    await TradesmanProfile.updateOne(
+    await TradesmanProfile.findOneAndUpdate(
       { user: user._id },
       {
         $setOnInsert: {
@@ -313,9 +313,11 @@ export const register = catchAsync(async (req, res) => {
           "verification.submittedAt": new Date(),
         },
       },
-      { upsert: true },
+      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
     );
   }
+
+  await user.save();
 
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
