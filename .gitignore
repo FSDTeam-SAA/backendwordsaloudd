@@ -6,3 +6,10 @@ node_modules/
 public/temp/*
 !public/temp/.gitkeep
 .DS_Store
+
+
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local.env

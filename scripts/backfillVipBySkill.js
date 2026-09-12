@@ -17,7 +17,17 @@ const run = async () => {
     [{ $set: { vipBySkill: "$mainSkill" } }],
   );
 
+  const vipWithoutCategory = await TradesmanProfile.countDocuments({
+    isVip: true,
+    $or: [
+      { vipBySkill: { $exists: false } },
+      { vipBySkill: null },
+      { vipBySkill: "" },
+    ],
+  });
+
   console.log(`VIP skills backfilled: ${result.modifiedCount}`);
+  console.log(`VIP profiles still missing a category: ${vipWithoutCategory}`);
   await mongoose.disconnect();
 };
 

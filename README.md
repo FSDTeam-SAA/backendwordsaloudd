@@ -67,12 +67,14 @@ After deploying the verification/category update, run:
 ```bash
 npm run migrate:verification
 npm run migrate:categories
+npm run migrate:vip-skill
 ```
 
 The first command creates pending profiles for existing tradesmen and repairs
 missing verification statuses. The second normalizes category ordering and
 replaces legacy invalid icon values with configured category emoji where
-possible. Both scripts are safe to rerun.
+possible. The third assigns each legacy VIP profile to its existing main-skill
+category. All three scripts are safe to rerun.
 
 ---
 
