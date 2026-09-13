@@ -6,6 +6,7 @@ import { getActiveCategoryNames } from "../utils/adminHelpers.js";
 
 export const getSkillOptions = catchAsync(async (req, res) => {
   const skills = await getActiveCategoryNames();
+  res.setHeader("Cache-Control", "no-store");
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

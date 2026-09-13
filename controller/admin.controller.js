@@ -18,6 +18,7 @@ import {
   categoryJson,
   getActiveCategoryNames,
   getPlatformSettings,
+  newCategoryUntil,
   normalizeCategoryIcon,
   slugify,
   writeAuditLog,
@@ -415,6 +416,9 @@ const validateUrl = (value) => {
 
 const uploadAdvertisementMedia = async (file) => {
   if (!file) return null;
+  if (!file.buffer?.length) {
+    throw new AppError(httpStatus.BAD_REQUEST, "The advertisement media file is empty");
+  }
   const isImage = ["image/jpeg", "image/png"].includes(file.mimetype);
   const isVideo = file.mimetype === "video/mp4";
   if (!isImage && !isVideo) {
@@ -425,9 +429,14 @@ const uploadAdvertisementMedia = async (file) => {
     result = await uploadOnCloudinary(file.buffer, {
       folder: "aturservicett/advertisements",
       resource_type: isVideo ? "video" : "image",
+      timeout: 120000,
     });
-  } catch {
+  } catch (error) {
+    console.error("Advertisement media upload failed:", error?.message || error);
     throw new AppError(httpStatus.BAD_GATEWAY, "Advertisement media could not be uploaded. Please try again");
+  }
+  if (!result?.public_id || !result?.secure_url) {
+    throw new AppError(httpStatus.BAD_GATEWAY, "Advertisement media upload returned an invalid response. Please try again");
   }
   if (isImage && (result.width < 600 || result.height < 338 || Math.abs(result.width / result.height - 16 / 9) > 0.03)) {
     await deleteFromCloudinary(result.public_id, "image");
@@ -771,7 +780,7 @@ export const createCategory = catchAsync(async (req, res) => {
     icon,
     order: 0,
     isActive: req.body.isActive !== false,
-    newUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    newUntil: newCategoryUntil(),
   });
   await writeAuditLog(req, { action: "category.created", entityType: "category", entityId: category._id, summary: category.name });
   sendResponse(res, { statusCode: httpStatus.CREATED, success: true, message: "Category created", data: categoryJson(category) });

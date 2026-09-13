@@ -11,6 +11,7 @@
     "seed:admin": "node seed/createAdmin.js",
     "migrate:verification": "node scripts/backfillTradesmanProfiles.js",
     "migrate:categories": "node scripts/normalizeCategories.js",
+    "migrate:category-badges": "node scripts/extendNewCategoryBadges.js",
     "migrate:vip-skill": "node scripts/backfillVipBySkill.js"
   },
   "keywords": [],

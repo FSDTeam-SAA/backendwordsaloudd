@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { categoryJson, normalizeCategoryIcon } from "../utils/adminHelpers.js";
+import {
+  categoryJson,
+  NEW_CATEGORY_BADGE_DAYS,
+  newCategoryUntil,
+  normalizeCategoryIcon,
+  publicCategoryJson,
+} from "../utils/adminHelpers.js";
 import { hashInvitationToken } from "../utils/adminInvitation.js";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
 
@@ -19,6 +25,26 @@ test("category JSON exposes the active NEW window", () => {
   assert.equal(categoryJson({ name: "New", newUntil: new Date(Date.now() + 60_000) }).isNew, true);
   assert.equal(categoryJson({ name: "Old", newUntil: new Date(Date.now() - 60_000) }).isNew, false);
   assert.equal(categoryJson({ name: "Legacy", newUntil: null }).isNew, false);
+});
+
+test("new category badges last for 30 days", () => {
+  const createdAt = new Date("2026-08-15T00:00:00.000Z");
+  assert.equal(NEW_CATEGORY_BADGE_DAYS, 30);
+  assert.equal(newCategoryUntil(createdAt).toISOString(), "2026-09-14T00:00:00.000Z");
+});
+
+test("public category cards do not expose VIP presentation fields", () => {
+  const value = publicCategoryJson({
+    name: "Plumber",
+    icon: "🔧",
+    newUntil: null,
+  }, 4);
+
+  assert.equal(value.skill, "Plumber");
+  assert.equal(value.tradesmanCount, 4);
+  assert.equal("listedCount" in value, false);
+  assert.equal("vipCount" in value, false);
+  assert.equal("isVerified" in value, false);
 });
 
 test("administrator invitation tokens are stored as deterministic hashes", () => {

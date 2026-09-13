@@ -8,7 +8,7 @@ import sendResponse from "../utils/sendResponse.js";
 import { uploadOnCloudinary } from "../utils/commonMethod.js";
 import { TRAVEL_RANGES, normalizeTravelRange, normalizeRateUnit } from "../constants/skills.js";
 import Category from "../model/category.model.js";
-import { categoryJson, ensureDefaultCategories, getActiveCategoryNames } from "../utils/adminHelpers.js";
+import { ensureDefaultCategories, getActiveCategoryNames, publicCategoryJson } from "../utils/adminHelpers.js";
 
 const getOrCreateProfile = async (userId) => {
   let profile = await TradesmanProfile.findOne({ user: userId });
@@ -205,39 +205,22 @@ export const getMyProfile = catchAsync(async (req, res) => {
 
 export const getCategories = catchAsync(async (req, res) => {
   await ensureDefaultCategories();
-  const [tradesmanCounts, vipCounts] = await Promise.all([
-    TradesmanProfile.aggregate([
-      { $project: { skills: { $setUnion: [["$mainSkill"], { $ifNull: ["$extraSkills", []] }] } } },
-      { $unwind: "$skills" },
-      { $match: { skills: { $nin: [null, ""] } } },
-      { $group: { _id: "$skills", count: { $sum: 1 } } },
-    ]),
-    TradesmanProfile.aggregate([
-      { $match: { isVip: true, vipBySkill: { $nin: [null, ""] } } },
-      { $group: { _id: "$vipBySkill", count: { $sum: 1 } } },
-    ]),
+  const tradesmanCounts = await TradesmanProfile.aggregate([
+    { $project: { skills: { $setUnion: [["$mainSkill"], { $ifNull: ["$extraSkills", []] }] } } },
+    { $unwind: "$skills" },
+    { $match: { skills: { $nin: [null, ""] } } },
+    { $group: { _id: "$skills", count: { $sum: 1 } } },
   ]);
 
   const tradesmanCountMap = tradesmanCounts.reduce((acc, c) => {
     acc[c._id] = c;
     return acc;
   }, {});
-  const vipCountMap = vipCounts.reduce((acc, item) => {
-    acc[item._id] = item.count;
-    return acc;
-  }, {});
-
   const categoryRecords = await Category.find({ isActive: true }).sort({ order: 1, name: 1 });
-  const categories = categoryRecords.map((category) => ({
-    skill: category.name,
-    listedCount: vipCountMap[category.name] || 0,
-    vipCount: vipCountMap[category.name] || 0,
-    tradesmanCount: tradesmanCountMap[category.name]?.count || 0,
-    isVerified: (vipCountMap[category.name] || 0) > 0,
-    icon: category.icon,
-    isNew: categoryJson(category).isNew,
-    newUntil: category.newUntil,
-  }));
+  const categories = categoryRecords.map((category) => publicCategoryJson(
+    category,
+    tradesmanCountMap[category.name]?.count || 0
+  ));
 
   res.setHeader("Cache-Control", "no-store");
   sendResponse(res, {

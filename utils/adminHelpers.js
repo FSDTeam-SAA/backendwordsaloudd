@@ -3,6 +3,11 @@ import Category from "../model/category.model.js";
 import PlatformSettings from "../model/platformSettings.model.js";
 import { CATEGORY_ICONS, SKILLS } from "../constants/skills.js";
 
+export const NEW_CATEGORY_BADGE_DAYS = 30;
+export const newCategoryUntil = (createdAt = new Date()) => new Date(
+  new Date(createdAt).getTime() + NEW_CATEGORY_BADGE_DAYS * 24 * 60 * 60 * 1000
+);
+
 export const slugify = (value) => String(value || "")
   .trim()
   .toLowerCase()
@@ -24,7 +29,7 @@ export const ensureDefaultCategories = async () => {
 
 export const getActiveCategoryNames = async () => {
   await ensureDefaultCategories();
-  const categories = await Category.find().sort({ order: 1, name: 1 }).select("name");
+  const categories = await Category.find({ isActive: true }).sort({ order: 1, name: 1 }).select("name");
   return categories.map((category) => category.name);
 };
 
@@ -49,6 +54,14 @@ export const categoryJson = (category) => {
     isNew: Boolean(value.newUntil && new Date(value.newUntil) > new Date()),
   };
 };
+
+export const publicCategoryJson = (category, tradesmanCount = 0) => ({
+  skill: category.name,
+  tradesmanCount,
+  icon: category.icon,
+  isNew: categoryJson(category).isNew,
+  newUntil: category.newUntil,
+});
 
 export const getPlatformSettings = async () => PlatformSettings.findOneAndUpdate(
   { key: "platform" },

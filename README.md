@@ -67,14 +67,16 @@ After deploying the verification/category update, run:
 ```bash
 npm run migrate:verification
 npm run migrate:categories
+npm run migrate:category-badges
 npm run migrate:vip-skill
 ```
 
 The first command creates pending profiles for existing tradesmen, repairs
 missing verification data, and removes orphan profiles/reviews. The second normalizes category ordering and
 replaces legacy invalid icon values with configured category emoji where
-possible. The third assigns each legacy VIP profile to its existing main-skill
-category. All three scripts are safe to rerun.
+possible. The third extends recently-created category NEW badges to 30 days.
+The fourth assigns each legacy VIP profile to its existing main-skill category.
+All four scripts are safe to rerun.
 
 ---
 
@@ -121,7 +123,7 @@ Protected routes require `Authorization: Bearer <accessToken>`.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/categories` | public | Home grid; `listedCount`/`vipCount` are category VIPs and `tradesmanCount` is the total skill listing count |
+| GET | `/categories` | public | Home grid; `tradesmanCount` is the total skill listing count and new categories expose a 30-day `isNew`/`newUntil` window |
 | GET | `/?skill=&search=&area=&sort=rating\|newest\|priceLow\|priceHigh&page=&limit=` | public | Category browse; `isVip` is true only when `vipBySkill` matches the requested skill |
 | GET | `/:id` | public | Tradesman detail page (about + reviews) |
 | GET | `/me/profile` | tradesman | Own profile |
