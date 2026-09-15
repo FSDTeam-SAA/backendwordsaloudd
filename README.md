@@ -8,19 +8,94 @@ User list, Advertisement, Settings).
 Stack: Node.js, Express, MongoDB (Mongoose), JWT auth, bcrypt, Cloudinary
 (image uploads), Resend (OTP emails).
 
-## 1. Install
+## 1. Install Required Software
+
+Install these before running the backend.
+
+### Install VS Code
+
+1. Go to https://code.visualstudio.com/
+2. Download VS Code for your computer.
+3. Install it.
+4. Open VS Code after installation.
+
+### Install Node.js
+
+1. Go to https://nodejs.org/
+2. Download the LTS version.
+3. Install it.
+4. Open a terminal and check that Node.js is installed:
 
 ```bash
-npm install
+node -v
+npm -v
 ```
 
-## 2. Configure environment
+If both commands show version numbers, Node.js is installed correctly.
 
-Copy `.env.example` to `.env` and fill in the values:
+### Install Git
+
+1. Go to https://git-scm.com/downloads
+2. Download Git for your computer.
+3. Install it.
+4. Check that Git is installed:
 
 ```bash
-cp .env.example .env
+git --version
 ```
+
+## 2. Download The Backend Project
+
+Open a terminal in the folder where you want to keep the project.
+
+Run:
+
+```bash
+git clone YOUR_GITHUB_BACKEND_LINK_HERE
+```
+
+Replace `YOUR_GITHUB_BACKEND_LINK_HERE` with the real GitHub link.
+
+Then open the project in VS Code:
+
+```bash
+cd backendwordsaloudd
+code .
+```
+
+If `code .` does not work, open VS Code manually, choose **File > Open Folder**, and select the `backendwordsaloudd` folder.
+
+## 3. Install Backend Packages
+
+In the VS Code terminal, make sure you are inside the `backendwordsaloudd` folder.
+
+Then run:
+
+```bash
+npm i
+```
+
+This command downloads all backend packages needed by the project.
+
+## 4. Create The `.env` File
+
+The backend needs a `.env` file. This file contains private settings like the database link, JWT secrets, email settings, and Cloudinary settings.
+
+Inside the `backendwordsaloudd` folder, create a new file named:
+
+```text
+.env
+```
+
+Copy the `.env` values from the link shared by the project owner and paste them into this `.env` file.
+
+The project also has an example file named:
+
+```bash
+.env.example
+```
+
+Use `.env.example` only as a reference. Do not rename it. Create a separate `.env` file.
 
 - `MONGO_DB_URL` — a MongoDB connection string (local `mongodb://127.0.0.1:27017/aturservicett`
   or a MongoDB Atlas URL).
@@ -37,18 +112,43 @@ cp .env.example .env
 - `ADMIN_INVITE_EXPIRES_HOURS` — invitation lifetime in hours (defaults to 24,
   capped at 168).
 
-## 3. Run
+## 5. Run The Backend
 
 ```bash
-npm run dev      # nodemon, auto-restarts on change
-# or
+npm run dev
+```
+
+If everything is correct, the backend will start.
+
+By default, the backend runs on:
+
+```text
+http://localhost:5000
+```
+
+The API base URL is:
+
+```text
+http://localhost:5000/api/v1
+```
+
+To check the backend in a browser, open:
+
+```text
+http://localhost:5000
+```
+
+You should see a message saying the API is running.
+
+Keep this terminal open while using the mobile app. If you close the terminal, the backend will stop.
+
+For production-style running, you can also use:
+
+```bash
 npm start
 ```
 
-The API listens on `http://localhost:5000` (or your `PORT`), mounted at
-`/api/v1`.
-
-## 4. Create or promote the initial super-admin
+## 6. Create Or Promote The Initial Super Admin
 
 ```bash
 npm run seed:admin
@@ -60,7 +160,7 @@ production environment. Run it once after deploying the admin-management update
 so the designated owner can open **Admin Management** and manage future admin
 accounts without database access.
 
-## 5. Run the one-time data migrations
+## 7. Run The One-Time Data Migrations
 
 After deploying the verification/category update, run:
 
@@ -77,6 +177,42 @@ replaces legacy invalid icon values with configured category emoji where
 possible. The third extends recently-created category NEW badges to 30 days.
 The fourth assigns each legacy VIP profile to its existing main-skill category.
 All four scripts are safe to rerun.
+
+## 8. Useful Backend Commands
+
+Run these commands inside the `backendwordsaloudd` folder.
+
+```bash
+npm i
+npm run dev
+npm start
+npm test
+npm run seed:admin
+```
+
+## 9. Common Backend Problems
+
+### MongoDB Connection Error
+
+Check the `MONGO_DB_URL` value inside `.env`.
+
+Make sure the database link is correct and the database service is running.
+
+### Port Already In Use
+
+Another app may already be using port `5000`.
+
+Close the other app, or change the `PORT` value inside the `.env` file.
+
+### `.env` File Not Found
+
+Make sure the file is named exactly:
+
+```text
+.env
+```
+
+It must be inside the `backendwordsaloudd` folder.
 
 ---
 
