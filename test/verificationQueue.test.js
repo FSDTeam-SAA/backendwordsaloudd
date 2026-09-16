@@ -19,6 +19,17 @@ test("verification queue joins profiles to tradesman users before pagination and
   assert.deepEqual(pipeline.at(-1).$facet.count, [{ $count: "total" }]);
 });
 
+test("all verification statuses are queried without a status match", () => {
+  const pipeline = buildVerificationQueuePipeline({
+    status: "all",
+    page: 1,
+    limit: 10,
+  });
+
+  assert.equal(pipeline[0].$lookup.as, "queueUser");
+  assert.deepEqual(pipeline[2], { $match: { "queueUser.role": "tradesman" } });
+});
+
 test("verification records expose safe user data and the matching profile", () => {
   const record = {
     _id: "profile-1",

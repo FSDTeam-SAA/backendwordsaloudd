@@ -221,8 +221,8 @@ export const getUserList = catchAsync(async (req, res) => {
 
 export const getVerificationQueue = catchAsync(async (req, res) => {
   const status = String(req.query.status || "pending");
-  if (!["pending", "verified", "rejected"].includes(status)) {
-    throw new AppError(httpStatus.BAD_REQUEST, "status must be 'pending', 'verified' or 'rejected'");
+  if (!["all", "pending", "verified", "rejected"].includes(status)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "status must be 'all', 'pending', 'verified' or 'rejected'");
   }
   const page = clamp(req.query.page, 1, 100000, 1);
   const limit = clamp(req.query.limit, 1, 100, 20);

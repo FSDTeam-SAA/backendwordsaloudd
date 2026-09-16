@@ -56,8 +56,13 @@ export const serializeVerificationRecord = (record) => {
 export const buildVerificationQueuePipeline = ({ status, search = "", page = 1, limit = 20 }) => {
   const normalizedSearch = String(search).trim();
   const skip = (page - 1) * limit;
-  const pipeline = [
-    { $match: { verificationStatus: status } },
+  const pipeline = [];
+
+  if (status !== "all") {
+    pipeline.push({ $match: { verificationStatus: status } });
+  }
+
+  pipeline.push(
     {
       $lookup: {
         from: User.collection.name,
@@ -68,7 +73,7 @@ export const buildVerificationQueuePipeline = ({ status, search = "", page = 1, 
     },
     { $unwind: "$queueUser" },
     { $match: { "queueUser.role": "tradesman" } },
-  ];
+  );
 
   if (normalizedSearch) {
     const regex = new RegExp(escapeRegex(normalizedSearch), "i");
