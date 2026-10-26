@@ -46,6 +46,8 @@ import {
 } from "../controller/admin.controller.js";
 import { protect, requireAdminPermission, restrictTo } from "../middleware/auth.middleware.js";
 import upload from "../middleware/multer.middleware.js";
+import { profileImagesUpload } from "../middleware/multer.middleware.js";
+import { updateTradesmanAdmin, resolveContactChangeAdmin } from "../controller/adminProfile.controller.js";
 
 const router = express.Router();
 
@@ -60,6 +62,8 @@ router.use(protect, restrictTo("admin", "super-admin"));
 router.get("/dashboard", requireAdminPermission("dashboard"), getDashboardOverview);
 
 router.get("/users", requireAdminPermission("users"), getUserList);
+router.patch("/users/:userId/tradesman-profile", requireAdminPermission("users"), profileImagesUpload(true), updateTradesmanAdmin);
+router.post("/users/:userId/contact-change", requireAdminPermission("users"), resolveContactChangeAdmin);
 router.post("/users/bulk", requireAdminPermission("users"), bulkUserAction);
 router.patch("/users/:userId/toggle-block", requireAdminPermission("users"), toggleUserBlock);
 router.delete("/users/:userId", requireAdminPermission("users"), deleteUser);

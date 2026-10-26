@@ -112,15 +112,19 @@ contactChangeRequest: {
   reason: { type: String, default: "" },
   status: {
     type: String,
-    enum: ["none", "pending", "resolved"],
+    enum: ["none", "pending", "resolved", "rejected"],
     default: "none",
   },
   requestedAt: { type: Date, default: null },
+  reviewedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+  reviewedAt: { type: Date, default: null },
+  reviewNote: { type: String, trim: true, default: "" },
 },
   },
   
   {
     timestamps: true,
+    optimisticConcurrency: true,
   }
 );
 

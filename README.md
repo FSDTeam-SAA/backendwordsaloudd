@@ -251,7 +251,7 @@ Protected routes require `Authorization: Bearer <accessToken>`.
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `/me` | — | "Profile" screen |
-| PATCH | `/me` | firstName?, lastName?, area?, phoneNumber?, file: `profileImage`? | "Edit Profile" screen |
+| PUT/PATCH | `/me` | firstName?, lastName?, area?, phoneNumber?, file: `profileImage`? | "Edit Profile" screen |
 | PATCH | `/change-password` | currentPassword, newPassword, confirmPassword | Settings → Change Password |
 | DELETE | `/me` | — | Account Management → Delete Account |
 
@@ -337,3 +337,6 @@ adjusting to match your exact intent:
   entity in the flow shown.
 - Static screens (About App, Privacy Policy, Terms & Conditions) don't need
   an API — they're just content you can hardcode in the app.
+
+
+See [Dashboard and app integration](DASHBOARD-APP-INTEGRATION.md) for photo fields, admin profile editing, contact approvals, campaign scheduling, and review moderation behavior.

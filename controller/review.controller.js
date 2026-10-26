@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import httpStatus from "http-status";
 import Review from "../model/review.model.js";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
@@ -7,26 +6,7 @@ import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
 import { getPlatformSettings } from "../utils/adminHelpers.js";
 
-const recalcRating = async (tradesmanId) => {
-  const stats = await Review.aggregate([
-     { $match: { tradesman: new mongoose.Types.ObjectId(tradesmanId), $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] } },
-    {
-      $group: {
-        _id: "$tradesman",
-        avg: { $avg: "$rating" },
-        count: { $sum: 1 },
-      },
-    },
-  ]);
-
-  const { avg = 0, count = 0 } = stats[0] || {};
-
-  await TradesmanProfile.findByIdAndUpdate(tradesmanId, {
-    ratingAverage: Math.round(avg * 10) / 10,
-    ratingCount: count,
-  });
-};
-
+import { visibleReviews, refreshTradesmanRatings } from "../utils/reviewVisibility.js";
 
 export const postReview = catchAsync(async (req, res) => {
   const { tradesmanId } = req.params;
@@ -49,7 +29,7 @@ export const postReview = catchAsync(async (req, res) => {
     { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
   );
 
-  await recalcRating(tradesmanId);
+  await refreshTradesmanRatings([tradesmanId]);
 
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
@@ -61,8 +41,9 @@ export const postReview = catchAsync(async (req, res) => {
 
 export const getReviewsForTradesman = catchAsync(async (req, res) => {
   const { tradesmanId } = req.params;
+  res.setHeader("Cache-Control", "no-store");
 
-  const reviews = await Review.find({ tradesman: tradesmanId, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] })
+  const reviews = await Review.find(visibleReviews({ tradesman: tradesmanId }))
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 });
 

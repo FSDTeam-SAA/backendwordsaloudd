@@ -741,37 +741,37 @@ export const login = catchAsync(async (req, res) => {
   }
 });
 
-// export const forgetPassword = catchAsync(async (req, res) => {
-//   const { email } = req.body;
+export const forgetPassword = catchAsync(async (req, res) => {
+  const { email } = req.body;
 
-//   if (!email) {
-//     throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
-//   }
+  if (!email) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email is required");
+  }
 
-//   const user = await User.findOne({ email: email.toLowerCase().trim() });
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-//   if (!user) {
-//     throw new AppError(httpStatus.NOT_FOUND, "User not found");
-//   }
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
 
-//   const otp = generateOTP(6);
+  const otp = generateOTP(6);
 
-//   user.setResetPasswordOTP(otp);
-//   await user.save();
+  user.setResetPasswordOTP(otp);
+  await user.save();
 
-//   await sendEmail(user.email, "Reset OTP", `Your OTP is ${otp}`);
+  await sendEmail(user.email, "Reset OTP", `Your OTP is ${otp}`);
 
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "OTP sent",
-//     data: {
-//       email: user.email,
-//       resetOtpVerified: false,
-//       ...includeDevelopmentOtp(otp),
-//     },
-//   });
-// });
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "OTP sent",
+    data: {
+      email: user.email,
+      resetOtpVerified: false,
+      ...includeDevelopmentOtp(otp),
+    },
+  });
+});
 
 export const verifyResetPasswordOTP = catchAsync(async (req, res) => {
   const { email, otp } = req.body;

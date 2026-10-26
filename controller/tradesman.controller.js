@@ -1,3 +1,5 @@
+import { applyProfileChanges, saveProfileWithImages } from "../utils/profileHelpers.js";
+import { visibleReviews } from "../utils/reviewVisibility.js";
 import httpStatus from "http-status";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
 import User from "../model/user.model.js";
@@ -5,7 +7,7 @@ import Review from "../model/review.model.js";
 import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
-import { uploadOnCloudinary } from "../utils/commonMethod.js";
+import { deleteFromCloudinary } from "../utils/commonMethod.js";
 import { TRAVEL_RANGES, normalizeTravelRange, normalizeRateUnit } from "../constants/skills.js";
 import Category from "../model/category.model.js";
 import { ensureDefaultCategories, getActiveCategoryNames, publicCategoryJson } from "../utils/adminHelpers.js";
@@ -101,18 +103,7 @@ export const setPitchAndRate = catchAsync(async (req, res) => {
     profile.typicalRate.unit = normalizedUnit;
   }
 
-  if (req.files && req.files.length) {
-    const uploads = await Promise.all(
-      req.files.map((f) =>
-        uploadOnCloudinary(f.buffer, { folder: "aturservicett/work-photos" })
-      )
-    );
-    profile.workPhotos.push(
-      ...uploads.map((r) => ({ public_id: r.public_id, url: r.secure_url }))
-    );
-  }
-
-  await profile.save();
+  await saveProfileWithImages({ user: req.user, profile, workPhotos: req.workPhotoFiles || [] });
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -151,9 +142,10 @@ export const removeWorkPhoto = catchAsync(async (req, res, next) => {
   }
 
   // Remove photo from database
-  tradesman.workPhotos.splice(photoIndex, 1);
+  const [removedPhoto] = tradesman.workPhotos.splice(photoIndex, 1);
 
   await tradesman.save();
+  if (removedPhoto.public_id) await deleteFromCloudinary(removedPhoto.public_id);
 
   sendResponse(res, {
     statusCode: 200,
@@ -338,7 +330,7 @@ export const browseTradesmen = catchAsync(async (req, res) => {
 //     throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
 //   }
 
-//   const reviews = await Review.find({ tradesman: profile._id })
+//   const reviews = await Review.find(visibleReviews({ tradesman: profile._id }))
 //     .populate("reviewer", "firstName lastName")
 //     .sort({ createdAt: -1 })
 //     .limit(20);
@@ -352,6 +344,7 @@ export const browseTradesmen = catchAsync(async (req, res) => {
 // });
 
 export const getTradesmanById = catchAsync(async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const profile = await TradesmanProfile.findById(req.params.id).populate(
     "user",
     "firstName lastName phoneNumber area profileImage"
@@ -368,7 +361,7 @@ export const getTradesmanById = catchAsync(async (req, res) => {
     );
   }
 
-  const reviews = await Review.find({ tradesman: profile._id })
+  const reviews = await Review.find(visibleReviews({ tradesman: profile._id }))
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 })
     .limit(20);
@@ -410,7 +403,7 @@ export const getTradesmanById = catchAsync(async (req, res) => {
 //     count: breakdownMap[star] || 0,
 //   }));
 
-//   const recentReviews = await Review.find({ tradesman: profile._id })
+//   const recentReviews = await Review.find(visibleReviews({ tradesman: profile._id }))
 //     .populate("reviewer", "firstName lastName")
 //     .sort({ createdAt: -1 })
 //     .limit(10);
@@ -452,7 +445,7 @@ export const getMyDashboard = catchAsync(async (req, res) => {
   const tradesListed = 1 + (profile.extraSkills?.length || 0);
 
   const breakdownAgg = await Review.aggregate([
-    { $match: { tradesman: profile._id, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] } },
+    { $match: visibleReviews({ tradesman: profile._id }) },
     { $group: { _id: "$rating", count: { $sum: 1 } } },
   ]);
   const breakdownMap = breakdownAgg.reduce((acc, r) => {
@@ -464,7 +457,7 @@ export const getMyDashboard = catchAsync(async (req, res) => {
     count: breakdownMap[star] || 0,
   }));
 
-  const recentReviews = await Review.find({ tradesman: profile._id, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] })
+  const recentReviews = await Review.find(visibleReviews({ tradesman: profile._id }))
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 })
     .limit(10);
@@ -530,90 +523,12 @@ export const requestContactChange = catchAsync(async (req, res) => {
 });
 
 export const updateMyProfile = catchAsync(async (req, res) => {
-  const { pitch, rateAmount, rateUnit, mainSkill, extraSkills, homeArea, travelRange } = req.body;
-
   const profile = await getOrCreateProfile(req.user._id);
   const activeSkills = await getActiveCategoryNames();
-  const assignedVipSkill = profile.isVip ? profile.vipBySkill : "";
-
-  if (mainSkill !== undefined) {
-    if (!activeSkills.includes(mainSkill)) {
-      throw new AppError(httpStatus.BAD_REQUEST, "A valid main skill is required");
-    }
-    profile.mainSkill = mainSkill;
-  }
-  if (extraSkills !== undefined) {
-    const parsedExtras = typeof extraSkills === "string" ? JSON.parse(extraSkills) : extraSkills;
-    const extras = Array.isArray(parsedExtras) ? parsedExtras.slice(0, 2) : [];
-    extras.forEach((s) => {
-      if (!activeSkills.includes(s)) {
-        throw new AppError(httpStatus.BAD_REQUEST, `Invalid skill: ${s}`);
-      }
-    });
-    profile.extraSkills = extras;
-  }
-
-  if (assignedVipSkill && ![profile.mainSkill, ...(profile.extraSkills || [])].includes(assignedVipSkill)) {
-    throw new AppError(httpStatus.BAD_REQUEST, `Your assigned VIP skill (${assignedVipSkill}) cannot be removed`);
-  }
-
-  if (homeArea !== undefined) profile.homeArea = homeArea;
-  if (travelRange !== undefined) {
-    const normalizedRange = normalizeTravelRange(travelRange);
-    if (!normalizedRange) {
-      throw new AppError(
-        httpStatus.BAD_REQUEST,
-        `A valid travel range is required. Accepted values: ${TRAVEL_RANGES.join(", ")}`
-      );
-    }
-    profile.travelRange = normalizedRange;
-  }
-
-  if (pitch !== undefined) {
-    if (pitch.length > 140) {
-      throw new AppError(httpStatus.BAD_REQUEST, "Pitch must be 140 characters or less");
-    }
-    profile.pitch = pitch;
-  }
-
-  if (rateAmount !== undefined) profile.typicalRate.amount = Number(rateAmount);
-  if (rateUnit) {
-    const normalizedUnit = normalizeRateUnit(rateUnit);
-    if (!normalizedUnit) {
-      throw new AppError(
-        httpStatus.BAD_REQUEST,
-        "Invalid rate unit. Accepted values: Per day, Per hour, Per job"
-      );
-    }
-    profile.typicalRate.unit = normalizedUnit;
-  }
-
-  await profile.save();
-
-  const avatarFile = req.files?.avatar?.[0];
-  let user = req.user;
-  if (avatarFile) {
-    const uploadResult = await uploadOnCloudinary(avatarFile.buffer, {
-      folder: "aturservicett/avatars",
-    });
-    user = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        profileImage: { public_id: uploadResult.public_id, url: uploadResult.secure_url },
-      },
-      { new: true }
-    );
-  }
-
+  applyProfileChanges(profile, req.body, activeSkills);
+  await saveProfileWithImages({ user: req.user, profile, avatar: req.file, workPhotos: req.workPhotoFiles || [] });
   const populatedProfile = await TradesmanProfile.findById(profile._id).populate(
-    "user",
-    "firstName lastName email phoneNumber area profileImage"
+    "user", "firstName lastName email phoneNumber area profileImage"
   );
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Profile updated successfully",
-    data: populatedProfile,
-  });
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Profile updated successfully", data: populatedProfile });
 });

@@ -1,13 +1,10 @@
+import { saveProfileWithImages } from "../utils/profileHelpers.js";
 import httpStatus from "http-status";
 import User from "../model/user.model.js";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
 import AppError from "../errors/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendResponse from "../utils/sendResponse.js";
-import {
-  uploadOnCloudinary,
-  deleteFromCloudinary,
-} from "../utils/commonMethod.js";
 
 export const getMe = catchAsync(async (req, res) => {
   sendResponse(res, {
@@ -28,17 +25,7 @@ export const updateMe = catchAsync(async (req, res) => {
   if (area !== undefined) user.area = area;
   if (phoneNumber) user.phoneNumber = phoneNumber;
 
-  if (req.file) {
-    if (user.profileImage?.public_id) {
-      await deleteFromCloudinary(user.profileImage.public_id);
-    }
-    const result = await uploadOnCloudinary(req.file.buffer, {
-      folder: "aturservicett/avatars",
-    });
-    user.profileImage = { public_id: result.public_id, url: result.secure_url };
-  }
-
-  await user.save();
+  await saveProfileWithImages({ user, avatar: req.file });
 
   sendResponse(res, {
     statusCode: httpStatus.OK,

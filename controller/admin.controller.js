@@ -1,3 +1,5 @@
+import { visibleReviews, refreshTradesmanRatings } from "../utils/reviewVisibility.js";
+import { activeAdvertisementFilter, advertisementDates, advertisementStatus } from "../utils/advertisementHelpers.js";
 import httpStatus from "http-status";
 import User, { ADMIN_PERMISSIONS } from "../model/user.model.js";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
@@ -45,17 +47,6 @@ const bulkIds = (value) => {
   return [...new Set(value.map(String))];
 };
 
-const refreshTradesmanRatings = async (profileIds) => {
-  for (const profileId of [...new Set(profileIds.map(String))]) {
-    const reviews = await Review.find({ tradesman: profileId, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] }).select("rating");
-    const average = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
-    await TradesmanProfile.findByIdAndUpdate(profileId, {
-      ratingAverage: Math.round(average * 10) / 10,
-      ratingCount: reviews.length,
-    });
-  }
-};
-
 const csvCell = (value) => {
   let text = value == null ? "" : String(value);
   if (/^[=+\-@]/.test(text)) text = `'${text}`;
@@ -71,16 +62,7 @@ const removeUserData = async (user) => {
   if (user.role === "client") {
     const reviews = await Review.find({ reviewer: user._id }).select("tradesman");
     await Review.deleteMany({ reviewer: user._id });
-    for (const { tradesman } of reviews) {
-      const stats = await Review.aggregate([
-        { $match: { tradesman } },
-        { $group: { _id: "$tradesman", average: { $avg: "$rating" }, count: { $sum: 1 } } },
-      ]);
-      await TradesmanProfile.findByIdAndUpdate(tradesman, {
-        ratingAverage: Math.round((stats[0]?.average || 0) * 10) / 10,
-        ratingCount: stats[0]?.count || 0,
-      });
-    }
+    await refreshTradesmanRatings(reviews.map((review) => review.tradesman));
   }
   await user.deleteOne();
 };
@@ -467,14 +449,7 @@ export const createAdvertisement = catchAsync(async (req, res) => {
   if (categories.some((category) => !activeCategories.includes(category))) {
     throw new AppError(httpStatus.BAD_REQUEST, "One or more advertisement categories are invalid");
   }
-  const parsedStart = startDate ? new Date(startDate) : new Date();
-  const parsedEnd = endDate ? new Date(endDate) : null;
-  if (Number.isNaN(parsedStart.getTime()) || (parsedEnd && Number.isNaN(parsedEnd.getTime()))) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Advertisement dates are invalid");
-  }
-  if (parsedEnd && parsedEnd <= parsedStart) {
-    throw new AppError(httpStatus.BAD_REQUEST, "End date must be after the start date");
-  }
+  const { startDate: parsedStart, endDate: parsedEnd } = advertisementDates(startDate, endDate);
   const media = await uploadAdvertisementMedia(req.file);
   if (!media) throw new AppError(httpStatus.BAD_REQUEST, "An advertisement image or MP4 video is required");
   let ad;
@@ -508,16 +483,8 @@ export const createAdvertisement = catchAsync(async (req, res) => {
 export const getAdvertisements = catchAsync(async (req, res) => {
   const publicRequest = req.query.activeOnly === "true";
   const now = new Date();
-  const filter = publicRequest
-    ? {
-        isActive: true,
-        startDate: { $lte: now },
-        $and: [
-          { $or: [{ endDate: null }, { endDate: { $gte: now } }] },
-          ...(req.query.category ? [{ $or: [{ categories: { $size: 0 } }, { categories: req.query.category }] }] : []),
-        ],
-      }
-    : {};
+  const filter = publicRequest ? activeAdvertisementFilter(req.query.category, now) : {};
+  res.setHeader("Cache-Control", "no-store");
   let query = Advertisement.find(filter).sort({ priority: -1, createdAt: -1 });
   if (publicRequest) query = query.select("-advertiser -createdBy");
   let ads = await query;
@@ -534,7 +501,7 @@ export const getAdvertisements = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: "Advertisements fetched",
-    data: ads,
+    data: ads.map((ad) => ({ ...ad.toJSON(), status: advertisementStatus(ad, now) })),
   });
 });
 
@@ -556,9 +523,9 @@ export const updateAdvertisement = catchAsync(async (req, res) => {
     }
     ad.categories = categories;
   }
-  if (startDate) ad.startDate = new Date(startDate);
-  if (endDate !== undefined) ad.endDate = endDate ? new Date(endDate) : null;
-  if (ad.endDate && ad.endDate <= ad.startDate) throw new AppError(httpStatus.BAD_REQUEST, "End date must be after the start date");
+  const dates = advertisementDates(startDate ?? ad.startDate, endDate === undefined ? ad.endDate : endDate);
+  ad.startDate = dates.startDate;
+  ad.endDate = dates.endDate;
   if (req.body.priority !== undefined) ad.priority = clamp(req.body.priority, 0, 1000, 0);
   if ([advertiserName, advertiserEmail, advertiserPhone].some((value) => value !== undefined)) {
     ad.advertiser = {
@@ -567,13 +534,17 @@ export const updateAdvertisement = catchAsync(async (req, res) => {
       phone: advertiserPhone ?? ad.advertiser?.phone ?? "",
     };
   }
+  const previousMedia = ad.media?.toObject();
   const newMedia = await uploadAdvertisementMedia(req.file);
   if (newMedia) {
-    if (ad.media?.public_id) await deleteFromCloudinary(ad.media.public_id, ad.media.mediaType);
     ad.media = newMedia;
   }
 
-  await ad.save();
+  try { await ad.save(); } catch (error) {
+    if (newMedia) await deleteFromCloudinary(newMedia.public_id, newMedia.mediaType);
+    throw error;
+  }
+  if (newMedia && previousMedia?.public_id) await deleteFromCloudinary(previousMedia.public_id, previousMedia.mediaType);
   await writeAuditLog(req, { action: "advertisement.updated", entityType: "advertisement", entityId: ad._id, summary: ad.title });
 
   sendResponse(res, {
@@ -938,7 +909,7 @@ export const getReviewsAdmin = catchAsync(async (req, res) => {
   const page = clamp(req.query.page, 1, 100000, 1);
   const limit = clamp(req.query.limit, 1, 100, 20);
   const filter = {};
-  if (req.query.status === "approved") filter.$or = [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }];
+  if (req.query.status === "approved") filter.$or = visibleReviews().$or;
   else if (["pending", "rejected"].includes(req.query.status)) filter.moderationStatus = req.query.status;
   const [reviews, total] = await Promise.all([
     Review.find(filter).populate("reviewer", "firstName lastName email").populate({ path: "tradesman", populate: { path: "user", select: "firstName lastName email" } }).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
@@ -957,8 +928,7 @@ export const moderateReview = catchAsync(async (req, res) => {
   review.moderatedAt = new Date();
   review.moderationNote = String(note).trim();
   await review.save();
-  const stats = await Review.aggregate([{ $match: { tradesman: review.tradesman, $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }] } }, { $group: { _id: "$tradesman", average: { $avg: "$rating" }, count: { $sum: 1 } } }]);
-  await TradesmanProfile.findByIdAndUpdate(review.tradesman, { ratingAverage: Math.round((stats[0]?.average || 0) * 10) / 10, ratingCount: stats[0]?.count || 0 });
+  await refreshTradesmanRatings([review.tradesman]);
   await writeAuditLog(req, { action: `review.${status}`, entityType: "review", entityId: review._id, summary: `Review ${status}`, metadata: { note } });
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: `Review ${status}`, data: review });
 });

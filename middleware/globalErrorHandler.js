@@ -24,6 +24,10 @@ const globalErrorHandler = (err, req, res, next) => {
     statusCode = simplifiedError.statusCode;
     message = simplifiedError.message;
     errorSources = simplifiedError.errorSources;
+  } else if (err?.name === "VersionError") {
+    statusCode = 409;
+    message = "This profile has changed. Refresh and try again";
+    errorSources = [{ path: "", message }];
   } else if (err instanceof AppError) {
     statusCode = err.statusCode;
     message = err.message;
@@ -34,7 +38,7 @@ const globalErrorHandler = (err, req, res, next) => {
       ? "Uploaded media must be 20 MB or smaller"
       : err.message;
     errorSources = [{ path: "media", message }];
-  } else if (err?.message === "Only JPG, PNG, and MP4 files are allowed") {
+  } else if (err?.message === "Only JPG, PNG, and MP4 files are allowed" || err?.statusCode === 400) {
     statusCode = 400;
     message = err.message;
     errorSources = [{ path: "media", message }];
