@@ -16,6 +16,8 @@ const reviewSchema = new Schema(
       index: true,
     },
 
+    skill: { type: String, trim: true, default: "" },
+
     rating: {
       type: Number,
       required: true,
@@ -50,7 +52,7 @@ const reviewSchema = new Schema(
   }
 );
 
-reviewSchema.index({ tradesman: 1, reviewer: 1 }, { unique: true });
+reviewSchema.index({ tradesman: 1, reviewer: 1, skill: 1 }, { unique: true });
 
 const Review = mongoose.model("Review", reviewSchema);
 
