@@ -1,5 +1,5 @@
 import { applyProfileChanges, saveProfileWithImages } from "../utils/profileHelpers.js";
-import { visibleReviews } from "../utils/reviewVisibility.js";
+import { visibleReviews, publicRatingStages } from "../utils/reviewVisibility.js";
 import httpStatus from "http-status";
 import TradesmanProfile from "../model/tradesmanProfile.model.js";
 import User from "../model/user.model.js";
@@ -257,41 +257,22 @@ export const browseTradesmen = catchAsync(async (req, res) => {
 
   const skip = (Number(page) - 1) * Number(limit);
 
-  let itemsPromise;
-  if (skill && sort === "rating") {
-    itemsPromise = TradesmanProfile.aggregate([
-      { $match: filter },
-      {
-        $addFields: {
-          _vipPriority: {
-            $cond: [
-              {
-                $and: [
-                  { $eq: ["$isVip", true] },
-                  { $eq: ["$vipBySkill", skill] },
-                ],
-              },
-              1,
-              0,
-            ],
-          },
-        },
-      },
-      { $sort: { _vipPriority: -1, ratingAverage: -1, _id: 1 } },
-      { $skip: skip },
-      { $limit: Number(limit) },
-      { $project: { _vipPriority: 0 } },
-    ]).then((profiles) => TradesmanProfile.populate(profiles, {
-      path: "user",
-      select: "firstName lastName profileImage area",
-    }));
-  } else {
-    itemsPromise = TradesmanProfile.find(filter)
-      .populate("user", "firstName lastName profileImage area")
-      .sort(sortMap[sort] || sortMap.rating)
-      .skip(skip)
-      .limit(Number(limit));
-  }
+  const itemsPromise = TradesmanProfile.aggregate([
+    { $match: filter },
+    ...publicRatingStages(skill),
+    { $addFields: { _vipPriority: { $cond: [
+      skill ? { $and: [{ $eq: ["$isVip", true] }, { $eq: ["$vipBySkill", skill] }] } : { $eq: ["$isVip", true] },
+      1, 0,
+    ] } } },
+    { $sort: sort === "rating" || !sortMap[sort]
+      ? { _vipPriority: -1, ratingAverage: -1, _id: 1 }
+      : { ...sortMap[sort], _id: 1 } },
+    { $skip: skip },
+    { $limit: Number(limit) },
+    { $project: { _vipPriority: 0, profileViews: 0 } },
+  ]).then((profiles) => TradesmanProfile.populate(profiles, {
+    path: "user", select: "firstName lastName profileImage area",
+  }));
 
   const [items, total] = await Promise.all([
     itemsPromise,
@@ -319,29 +300,6 @@ export const browseTradesmen = catchAsync(async (req, res) => {
   });
 });
 
-// tradesman detail page - about, recent work, reviews
-// export const getTradesmanById = catchAsync(async (req, res) => {
-//   const profile = await TradesmanProfile.findById(req.params.id).populate(
-//     "user",
-//     "firstName lastName phoneNumber area profileImage"
-//   );
-
-//   if (!profile) {
-//     throw new AppError(httpStatus.NOT_FOUND, "Tradesman not found");
-//   }
-
-//   const reviews = await Review.find(visibleReviews({ tradesman: profile._id }))
-//     .populate("reviewer", "firstName lastName")
-//     .sort({ createdAt: -1 })
-//     .limit(20);
-
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "Tradesman fetched",
-//     data: { profile, reviews },
-//   });
-// });
 
 export const getTradesmanById = catchAsync(async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -361,10 +319,16 @@ export const getTradesmanById = catchAsync(async (req, res) => {
     );
   }
 
-  const reviews = await Review.find(visibleReviews({ tradesman: profile._id }))
+  const reviews = await Review.find(visibleReviews({ tradesman: profile._id, ...(req.query.skill ? { skill: req.query.skill } : {}) }))
     .populate("reviewer", "firstName lastName")
     .sort({ createdAt: -1 })
     .limit(20);
+
+  const [ratings] = await TradesmanProfile.aggregate([
+    { $match: { _id: profile._id } }, ...publicRatingStages(req.query.skill),
+  ]);
+  profile.ratingAverage = ratings?.ratingAverage || 0;
+  profile.ratingCount = ratings?.ratingCount || 0;
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
