@@ -797,6 +797,7 @@ export const updateCategory = catchAsync(async (req, res) => {
       TradesmanProfile.updateMany({ mainSkill: previousName }, { $set: { mainSkill: category.name } }),
       TradesmanProfile.updateMany({ extraSkills: previousName }, { $set: { "extraSkills.$[skill]": category.name } }, { arrayFilters: [{ skill: previousName }] }),
       TradesmanProfile.updateMany({ vipBySkill: previousName }, { $set: { vipBySkill: category.name } }),
+      Review.updateMany({ skill: previousName }, { $set: { skill: category.name } }),
       Advertisement.updateMany({ categories: previousName }, { $set: { "categories.$[category]": category.name } }, { arrayFilters: [{ category: previousName }] }),
     ]);
   }
