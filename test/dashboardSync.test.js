@@ -64,6 +64,7 @@ test("profile details exclude moderated reviews and disable response caching", a
   profile.user = user;
   t.mock.method(TradesmanProfile, "findById", () => findByIdQuery(profile));
   t.mock.method(TradesmanProfile, "updateOne", async () => ({}));
+  t.mock.method(TradesmanProfile, "aggregate", async () => [{ ratingAverage: 0, ratingCount: 0 }]);
   let filter;
   t.mock.method(Review, "find", (query) => {
     filter = query;

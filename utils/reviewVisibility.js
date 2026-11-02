@@ -20,3 +20,24 @@ export const refreshTradesmanRatings = async (profileIds) => {
     });
   }
 };
+
+// Derive public scores from visible reviews so stale cached totals cannot leak rejected ratings.
+export const publicRatingStages = (skill) => [
+  { $lookup: {
+    from: Review.collection.name,
+    let: { profileId: "$_id" },
+    pipeline: [
+      { $match: visibleReviews({
+        $expr: { $eq: ["$tradesman", "$$profileId"] },
+        ...(skill ? { skill } : {}),
+      }) },
+      { $group: { _id: null, average: { $avg: "$rating" }, count: { $sum: 1 } } },
+    ],
+    as: "_publicRatings",
+  } },
+  { $addFields: {
+    ratingAverage: { $round: [{ $ifNull: [{ $arrayElemAt: ["$_publicRatings.average", 0] }, 0] }, 1] },
+    ratingCount: { $ifNull: [{ $arrayElemAt: ["$_publicRatings.count", 0] }, 0] },
+  } },
+  { $project: { _publicRatings: 0 } },
+];
