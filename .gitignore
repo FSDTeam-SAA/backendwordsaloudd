@@ -1,6 +1,4 @@
 node_modules/
-.env
-.env.*
 !.env.example
 
 public/temp/*
@@ -8,8 +6,5 @@ public/temp/*
 .DS_Store
 
 
-.env
-.env.local
-.env.development
-.env.production
 .env.*.local.env
+config.bat
